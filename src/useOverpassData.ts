@@ -266,6 +266,16 @@ export function useOverpassData() {
           const coords = resolveWayCoords(way.nodes, nodeMap);
           if (!coords || coords.length < 3) continue;
 
+          // Same as for standalone ways: water relation members must be
+          // closed rings. Open linestrings (river/stream centerlines) would
+          // produce huge bogus blue shapes if filled as polygons.
+          if (kind === "water") {
+            const isClosed =
+              way.nodes.length > 2 &&
+              way.nodes[0] === way.nodes[way.nodes.length - 1];
+            if (!isClosed) continue;
+          }
+
           const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
           if (poly.length < 3) continue; // clipped away entirely
 
