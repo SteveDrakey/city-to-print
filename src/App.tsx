@@ -46,11 +46,22 @@ export default function App() {
         style={{
           width: "100%",
           height: "100vh",
+          background: "#111827",
           display: "flex",
-          flexDirection: "column",
-          position: "relative",
+          justifyContent: "center",
         }}
       >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "min(100%, 100vh)",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            position: "relative",
+            boxShadow: "0 0 60px rgba(0,0,0,0.4)",
+          }}
+        >
         {/* Header */}
         <div
           style={{
@@ -77,6 +88,7 @@ export default function App() {
         {/* Map */}
         <div style={{ flex: 1, minHeight: 0 }}>
           <MapSelector onBoundsSelected={handleBoundsSelected} loading={loading} />
+        </div>
         </div>
       </div>
 
