@@ -125,7 +125,7 @@ function Table() {
   const tableW = 480;
   const tableD = 340;
   const tableThick = 10;
-  const legH = 160;
+  const legH = 155;
   const legTopW = 14;
   const legBottomW = 8;
   const woodColor = "#5c3d1e";
@@ -193,15 +193,15 @@ function PlantPot() {
         <cylinderGeometry args={[13, 13, 1, 16]} />
         <meshStandardMaterial color="#3d2b1f" roughness={0.95} />
       </mesh>
-      {([
-        { pos: [0, 42, 0] as const, r: 10 },
-        { pos: [-8, 36, 5] as const, r: 9 },
-        { pos: [6, 38, -4] as const, r: 11 },
-        { pos: [3, 45, 6] as const, r: 8 },
-        { pos: [-5, 44, -3] as const, r: 10 },
-      ]).map((leaf, i) => (
-        <mesh key={i} position={leaf.pos} castShadow>
-          <sphereGeometry args={[leaf.r, 8, 8]} />
+      {[
+        [0, 42, 0],
+        [-8, 36, 5],
+        [6, 38, -4],
+        [3, 45, 6],
+        [-5, 44, -3],
+      ].map(([x, y, z], i) => (
+        <mesh key={i} position={[x, y, z]} castShadow>
+          <sphereGeometry args={[8 + Math.random() * 3, 8, 8]} />
           <meshStandardMaterial color="#4a7c59" roughness={0.8} />
         </mesh>
       ))}
@@ -285,9 +285,9 @@ function WallShelfRoom() {
         <planeGeometry args={[1500, 1200]} />
         <meshStandardMaterial color="#e8ddd0" roughness={0.95} />
       </mesh>
-      {/* Floating shelf — depth 230 so a 200mm model fits with margin */}
-      <mesh position={[0, -10, -55]} receiveShadow castShadow>
-        <boxGeometry args={[420, 12, 230]} />
+      {/* Floating shelf */}
+      <mesh position={[0, -10, -60]} receiveShadow castShadow>
+        <boxGeometry args={[420, 12, 200]} />
         <meshStandardMaterial color="#6b4226" roughness={0.5} metalness={0.02} />
       </mesh>
       {/* Shelf bracket left */}
@@ -363,7 +363,7 @@ function PedestalRoom() {
 function BookshelfRoom() {
   const shelfColor = "#5c3d1e";
   const shelfW = 500;
-  const shelfD = 240;
+  const shelfD = 200;
   const shelfThick = 10;
 
   return (
@@ -470,9 +470,9 @@ function WindowSillRoom() {
         <boxGeometry args={[360, 6, 6]} />
         <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
       </mesh>
-      {/* Window sill / ledge — deeper (260mm), back edge flush with wall at Z≈-200 */}
-      <mesh position={[0, -10, -70]} receiveShadow castShadow>
-        <boxGeometry args={[440, 16, 260]} />
+      {/* Window sill / ledge */}
+      <mesh position={[0, -10, -100]} receiveShadow castShadow>
+        <boxGeometry args={[440, 16, 200]} />
         <meshStandardMaterial color="#f0ebe3" roughness={0.4} metalness={0.01} />
       </mesh>
       {/* Small succulent plant on sill */}
@@ -502,12 +502,8 @@ export function SceneLighting({ sceneType = "desk" as SceneType }: { sceneType?:
   return (
     <>
       <ambientLight
-        intensity={isWindow ? 0.4 : isPedestal ? 0.2 : 0.3}
+        intensity={isWindow ? 0.5 : isPedestal ? 0.25 : 0.35}
         color={isWindow ? "#e8f0ff" : "#fff5e6"}
-      />
-      {/* Hemisphere light for natural sky/ground fill — softens harsh shadows */}
-      <hemisphereLight
-        args={[isWindow ? "#d4e5f7" : "#f5efe6", "#8b7355", isWindow ? 0.35 : 0.25]}
       />
       <directionalLight
         position={isWindow ? [100, 400, -150] : [300, 500, 250]}
@@ -551,28 +547,18 @@ export function SceneLighting({ sceneType = "desk" as SceneType }: { sceneType?:
 }
 
 // ---- Scene environment configs ----
-// modelY = surface_top_Y + BASE_THICKNESS_MM/2  →  base-plate bottom sits exactly on the surface.
-// contactShadowY = surface_top_Y  →  shadow rendered at the surface plane.
-// cameraTarget = approx centre of model in world space (accounts for building height).
 
-export const SCENE_CONFIGS: Record<SceneType, {
+const SCENE_CONFIGS: Record<SceneType, {
   modelY: number;
   modelZ: number;
   contactShadowY: number;
   contactShadowColor: string;
-  cameraTarget: [number, number, number];
-  cameraPosition: [number, number, number];
 }> = {
-  // Table top surface at Y=0
-  desk:       { modelY: BASE_THICKNESS_MM / 2,         modelZ: 0,   contactShadowY: 0,   contactShadowColor: "#2a1f14", cameraTarget: [0, 15, 0],   cameraPosition: [250, 180, 300] },
-  // Shelf top at Y=-4  (mesh centre -10 + half-height 6)
-  wallShelf:  { modelY: -4 + BASE_THICKNESS_MM / 2,    modelZ: -50, contactShadowY: -4,  contactShadowColor: "#3d2b1f", cameraTarget: [0, 10, -45], cameraPosition: [220, 140, 260] },
-  // Pedestal cap top at Y=5  (mesh centre 2 + half-height 3)
-  pedestal:   { modelY: 5 + BASE_THICKNESS_MM / 2,     modelZ: 0,   contactShadowY: 5,   contactShadowColor: "#444",    cameraTarget: [0, 20, 0],   cameraPosition: [250, 200, 300] },
-  // Bottom shelf top at Y=-7  (mesh centre -12 + half-height 5)
-  bookshelf:  { modelY: -7 + BASE_THICKNESS_MM / 2,    modelZ: -35, contactShadowY: -7,  contactShadowColor: "#2a1f14", cameraTarget: [0, 8, -30],  cameraPosition: [220, 130, 260] },
-  // Window sill top at Y=-2  (mesh centre -10 + half-height 8)
-  windowSill: { modelY: -2 + BASE_THICKNESS_MM / 2,    modelZ: -70, contactShadowY: -2,  contactShadowColor: "#333",    cameraTarget: [0, 12, -65], cameraPosition: [220, 150, 250] },
+  desk:       { modelY: BASE_THICKNESS_MM / 2 + 4, modelZ: 10,  contactShadowY: -0.5,  contactShadowColor: "#2a1f14" },
+  wallShelf:  { modelY: BASE_THICKNESS_MM / 2 - 3, modelZ: -50, contactShadowY: -3.5,   contactShadowColor: "#3d2b1f" },
+  pedestal:   { modelY: BASE_THICKNESS_MM / 2 + 6, modelZ: 0,   contactShadowY: 5.5,    contactShadowColor: "#444" },
+  bookshelf:  { modelY: BASE_THICKNESS_MM / 2 - 6, modelZ: -20, contactShadowY: -6.5,   contactShadowColor: "#2a1f14" },
+  windowSill: { modelY: BASE_THICKNESS_MM / 2 - 1, modelZ: -70, contactShadowY: -1.5,   contactShadowColor: "#333" },
 };
 
 // ---- Exported scene that can be reused in static angle renders ----
@@ -732,8 +718,6 @@ interface ViewerOverlayProps {
 }
 
 export function ViewerOverlay({ sceneData, sceneType = "desk", onClose }: ViewerOverlayProps) {
-  const cfg = SCENE_CONFIGS[sceneType];
-
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -791,7 +775,7 @@ export function ViewerOverlay({ sceneData, sceneType = "desk", onClose }: Viewer
 
       <Canvas
         camera={{
-          position: cfg.cameraPosition,
+          position: [250, 180, 300],
           fov: 28,
           near: 1,
           far: 5000,
@@ -811,7 +795,7 @@ export function ViewerOverlay({ sceneData, sceneType = "desk", onClose }: Viewer
           maxPolarAngle={Math.PI / 2.2}
           minDistance={200}
           maxDistance={600}
-          target={cfg.cameraTarget}
+          target={[0, 20, 0]}
           autoRotate
           autoRotateSpeed={0.4}
         />
@@ -905,7 +889,7 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <Canvas
         camera={{
-          position: SCENE_CONFIGS.desk.cameraPosition,
+          position: [250, 180, 300],
           fov: 28,
           near: 1,
           far: 5000,
@@ -922,7 +906,7 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
           maxPolarAngle={Math.PI / 2.2}
           minDistance={200}
           maxDistance={600}
-          target={SCENE_CONFIGS.desk.cameraTarget}
+          target={[0, 20, 0]}
           autoRotate
           autoRotateSpeed={0.4}
         />

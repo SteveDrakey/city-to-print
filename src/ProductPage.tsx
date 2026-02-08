@@ -1,43 +1,44 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { CaptureRender, SCENE_CONFIGS } from "./ModelPreview";
+import { useState, useCallback, useEffect } from "react";
+import { CaptureRender } from "./ModelPreview";
 import type { SceneData, SceneType, SceneOption } from "./types";
 
-/**
- * Base camera offsets (relative to the scene's camera target).
- * Position = target + posOffset.  Target for all shots = scene camera target.
- */
-const BASE_ANGLES: {
+/** Camera angles for the product gallery shots. */
+const ANGLES: {
   label: string;
-  posOffset: readonly [number, number, number];
+  position: [number, number, number];
+  target: [number, number, number];
 }[] = [
-  { label: "Front view",        posOffset: [0, 100, 380] },
-  { label: "Three-quarter view", posOffset: [250, 160, 300] },
-  { label: "Side view",         posOffset: [380, 80, 0] },
-  { label: "Top-down view",     posOffset: [0, 380, 40] },
+  {
+    label: "Front view",
+    position: [0, 120, 380],
+    target: [0, 20, 0],
+  },
+  {
+    label: "Three-quarter view",
+    position: [250, 180, 300],
+    target: [0, 20, 0],
+  },
+  {
+    label: "Side view",
+    position: [380, 100, 0],
+    target: [0, 20, 0],
+  },
+  {
+    label: "Top-down view",
+    position: [0, 400, 40],
+    target: [0, 0, 0],
+  },
 ];
 
-/** Compute absolute camera positions/targets for a given scene type. */
-function getAnglesForScene(sceneType: SceneType) {
-  const t = SCENE_CONFIGS[sceneType].cameraTarget;
-  return BASE_ANGLES.map((a) => ({
-    label: a.label,
-    position: [
-      t[0] + a.posOffset[0],
-      t[1] + a.posOffset[1],
-      t[2] + a.posOffset[2],
-    ] as [number, number, number],
-    target: [...t] as [number, number, number],
-  }));
-}
-
-/** Build render jobs (hero + gallery) for a given scene type. */
-function getRenderJobs(sceneType: SceneType) {
-  const angles = getAnglesForScene(sceneType);
-  return [
-    { label: "Hero", position: angles[1].position, target: angles[1].target },
-    ...angles.map((a) => ({ label: a.label, position: a.position, target: a.target })),
-  ];
-}
+/**
+ * Render jobs: hero first (three-quarter angle), then the 4 gallery angles.
+ * Only ONE Canvas exists at a time — each is captured to a JPEG image,
+ * then the Canvas is unmounted before the next one starts.
+ */
+const RENDER_JOBS = [
+  { label: "Hero", position: ANGLES[1].position, target: ANGLES[1].target },
+  ...ANGLES.map((a) => ({ label: a.label, position: a.position, target: a.target })),
+];
 
 const SCENE_OPTIONS: SceneOption[] = [
   { id: "desk",       label: "Desk",         description: "Wooden desk with books & plant" },
@@ -119,10 +120,6 @@ interface Props {
 export default function ProductPage({ sceneData, locationName, sceneType, onSceneChange, onOpenViewer }: Props) {
   const displayName = locationName || "Your Selected Area";
 
-  // Compute per-scene camera angles and render jobs
-  const angles = useMemo(() => getAnglesForScene(sceneType), [sceneType]);
-  const renderJobs = useMemo(() => getRenderJobs(sceneType), [sceneType]);
-
   // Sequential render-to-image state
   const [images, setImages] = useState<string[]>([]);
   const [readyForNext, setReadyForNext] = useState(true);
@@ -139,10 +136,10 @@ export default function ProductPage({ sceneData, locationName, sceneType, onScen
   }, [sceneType, renderedScene]);
 
   const currentIndex = images.length;
-  const totalJobs = renderJobs.length;
+  const totalJobs = RENDER_JOBS.length;
   const isRendering = currentIndex < totalJobs;
   const shouldRender = isRendering && readyForNext;
-  const currentJob = shouldRender ? renderJobs[currentIndex] : null;
+  const currentJob = shouldRender ? RENDER_JOBS[currentIndex] : null;
 
   const handleCapture = useCallback((dataUrl: string) => {
     setReadyForNext(false);
@@ -495,7 +492,7 @@ export default function ProductPage({ sceneData, locationName, sceneType, onScen
             gap: 16,
           }}
         >
-          {angles.map((angle, i) => (
+          {ANGLES.map((angle, i) => (
             <div
               key={i}
               onClick={galleryImages[i] ? onOpenViewer : undefined}
