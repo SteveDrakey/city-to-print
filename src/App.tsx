@@ -4,14 +4,13 @@ import ProductPage from "./ProductPage";
 import { ViewerOverlay } from "./ModelPreview";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
-import type { Bounds, SceneType } from "./types";
+import type { Bounds } from "./types";
 
 export default function App() {
   const { loading, error, sceneData, fetchData, retryAttempt, maxRetries } =
     useOverpassData();
   const [locationName, setLocationName] = useState("");
   const [showViewer, setShowViewer] = useState(false);
-  const [sceneType, setSceneType] = useState<SceneType>("desk");
   const productRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
 
@@ -125,8 +124,6 @@ export default function App() {
           <ProductPage
             sceneData={sceneData}
             locationName={locationName}
-            sceneType={sceneType}
-            onSceneChange={setSceneType}
             onOpenViewer={() => setShowViewer(true)}
           />
         </div>
@@ -136,7 +133,6 @@ export default function App() {
       {showViewer && sceneData && (
         <ViewerOverlay
           sceneData={sceneData}
-          sceneType={sceneType}
           onClose={() => setShowViewer(false)}
         />
       )}
