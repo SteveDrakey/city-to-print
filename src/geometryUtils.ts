@@ -307,6 +307,72 @@ export function bufferLineToPolygon(
 }
 
 /**
+ * Douglas-Peucker polyline simplification.
+ * Removes points that deviate less than `tolerance` (in mm) from the
+ * straight line between their neighbours.  Works on open or closed
+ * polygons — the caller should close the ring afterwards if needed.
+ */
+export function simplifyPolygon(poly: Polygon, tolerance: number): Polygon {
+  if (poly.length <= 3 || tolerance <= 0) return poly;
+
+  // perpendicular distance from point p to line a→b
+  function perp(a: Point2D, b: Point2D, p: Point2D): number {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) {
+      const ex = p[0] - a[0];
+      const ey = p[1] - a[1];
+      return Math.sqrt(ex * ex + ey * ey);
+    }
+    return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / Math.sqrt(lenSq);
+  }
+
+  function rdp(pts: Polygon, first: number, last: number, tol: number, keep: boolean[]): void {
+    let maxDist = 0;
+    let maxIdx = first;
+    for (let i = first + 1; i < last; i++) {
+      const d = perp(pts[first], pts[last], pts[i]);
+      if (d > maxDist) {
+        maxDist = d;
+        maxIdx = i;
+      }
+    }
+    if (maxDist > tol) {
+      keep[maxIdx] = true;
+      rdp(pts, first, maxIdx, tol, keep);
+      rdp(pts, maxIdx, last, tol, keep);
+    }
+  }
+
+  const keep = new Array<boolean>(poly.length).fill(false);
+  keep[0] = true;
+  keep[poly.length - 1] = true;
+  rdp(poly, 0, poly.length - 1, tolerance, keep);
+
+  return poly.filter((_, i) => keep[i]);
+}
+
+/**
+ * Choose a simplification tolerance (in model mm) based on how many
+ * real-world metres each model-mm represents.
+ *
+ * Larger selected areas → more aggressive simplification because fine
+ * details are invisible at that scale.  For a 200mm model:
+ *   - 1km area → 0.2 mm/m → tolerance ≈ 0 (keep detail)
+ *   - 3km area → 0.067   → tolerance ≈ 0.3 mm
+ *   - 5km+     → ≤0.04   → tolerance ≈ 0.5 mm
+ */
+export function autoSimplifyTolerance(scaleMMperM: number): number {
+  // scaleMMperM < 0.1 means each real metre is < 0.1 mm on the model
+  // — detail below ~0.3 mm is invisible on a 3D print
+  if (scaleMMperM >= 0.15) return 0;        // small area, keep detail
+  if (scaleMMperM >= 0.08) return 0.25;      // medium area
+  if (scaleMMperM >= 0.04) return 0.4;       // large area
+  return 0.6;                                // very large area
+}
+
+/**
  * Project a road linestring (lat/lon) to model-space and buffer it
  * into a polygon strip, clipped to the base plate.
  */

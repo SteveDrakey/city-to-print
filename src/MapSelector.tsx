@@ -204,6 +204,8 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       },
       center: [13.405, 52.52],
       zoom: 13,
+      minZoom: 12,
+      maxZoom: 18,
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");

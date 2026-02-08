@@ -6,6 +6,8 @@ import {
   computeScale,
   projectPolygon,
   projectRoad,
+  simplifyPolygon,
+  autoSimplifyTolerance,
 } from "./geometryUtils";
 
 /** Maximum number of retry attempts before falling back to mock data */
@@ -383,7 +385,64 @@ function parseElements(
   if (buildings.length === 0 && water.length === 0 && roads.length === 0) {
     return null;
   }
-  return { buildings, water, roads, modelWidthMm, modelDepthMm };
+
+  // ---- Performance: simplify polygons & cap feature counts ----
+  const tolerance = autoSimplifyTolerance(scaleMMperM);
+
+  // Simplify all polygons (reduces vertex count for large areas)
+  if (tolerance > 0) {
+    for (const b of buildings) {
+      b.polygon = simplifyPolygon(b.polygon, tolerance);
+    }
+    for (const r of roads) {
+      r.polygon = simplifyPolygon(r.polygon, tolerance);
+    }
+    for (const w of water) {
+      w.polygon = simplifyPolygon(w.polygon, tolerance);
+    }
+  }
+
+  // Drop features that became degenerate after simplification
+  const validBuildings = buildings.filter((b) => b.polygon.length >= 3);
+  const validRoads = roads.filter((r) => r.polygon.length >= 3);
+  const validWater = water.filter((w) => w.polygon.length >= 3);
+
+  // When the area is large, drop paths (footways etc.) — they're
+  // invisible at scale and make up the bulk of road geometry.
+  const maxRealDim = Math.max(
+    modelWidthMm / scaleMMperM,
+    modelDepthMm / scaleMMperM
+  );
+  let filteredRoads = validRoads;
+  if (maxRealDim > 3000) {
+    // > 3km: drop paths entirely
+    filteredRoads = validRoads.filter((r) => r.kind !== "path");
+  } else if (maxRealDim > 1500) {
+    // 1.5-3km: keep only half the paths
+    let pathCount = 0;
+    filteredRoads = validRoads.filter((r) => {
+      if (r.kind !== "path") return true;
+      return (pathCount++ % 2) === 0;
+    });
+  }
+
+  // Hard caps to prevent GPU overload on very dense areas
+  const MAX_BUILDINGS = 1500;
+  const MAX_ROADS = 800;
+  const cappedBuildings = validBuildings.length > MAX_BUILDINGS
+    ? validBuildings.slice(0, MAX_BUILDINGS)
+    : validBuildings;
+  const cappedRoads = filteredRoads.length > MAX_ROADS
+    ? filteredRoads.slice(0, MAX_ROADS)
+    : filteredRoads;
+
+  return {
+    buildings: cappedBuildings,
+    water: validWater,
+    roads: cappedRoads,
+    modelWidthMm,
+    modelDepthMm,
+  };
 }
 
 /**

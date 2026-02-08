@@ -18,22 +18,32 @@ function polygonToShape(poly: Polygon): THREE.Shape {
   return shape;
 }
 
-// ---- Sub-components for individual geometry types ----
+// ---- Batched geometry components (merge many features into one mesh) ----
 
-function Building({
-  polygon,
-  heightMm,
-}: {
-  polygon: Polygon;
-  heightMm: number;
-}) {
+/**
+ * Merge all buildings into a single BufferGeometry.
+ * Massively reduces draw calls (from hundreds to one).
+ */
+function MergedBuildings({ buildings }: { buildings: SceneData["buildings"] }) {
   const geometry = useMemo(() => {
-    const shape = polygonToShape(polygon);
-    return new THREE.ExtrudeGeometry(shape, {
-      depth: heightMm,
-      bevelEnabled: false,
-    });
-  }, [polygon, heightMm]);
+    if (buildings.length === 0) return null;
+    const geometries: THREE.BufferGeometry[] = [];
+    for (const b of buildings) {
+      if (b.polygon.length < 3) continue;
+      const shape = polygonToShape(b.polygon);
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: b.heightMm,
+        bevelEnabled: false,
+      });
+      geometries.push(geo);
+    }
+    if (geometries.length === 0) return null;
+    const merged = mergeBufferGeometries(geometries);
+    for (const g of geometries) g.dispose();
+    return merged;
+  }, [buildings]);
+
+  if (!geometry) return null;
 
   return (
     <mesh
@@ -51,22 +61,30 @@ function Building({
   );
 }
 
-function Road({
-  polygon,
-  kind,
-}: {
-  polygon: Polygon;
-  kind: RoadData["kind"];
-}) {
-  const depth = kind === "major" ? 0.35 : kind === "minor" ? 0.25 : 0.15;
-
+/**
+ * Merge all roads into a single BufferGeometry.
+ */
+function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
   const geometry = useMemo(() => {
-    const shape = polygonToShape(polygon);
-    return new THREE.ExtrudeGeometry(shape, {
-      depth,
-      bevelEnabled: false,
-    });
-  }, [polygon, depth]);
+    if (roads.length === 0) return null;
+    const geometries: THREE.BufferGeometry[] = [];
+    for (const r of roads) {
+      if (r.polygon.length < 3) continue;
+      const depth = r.kind === "major" ? 0.35 : r.kind === "minor" ? 0.25 : 0.15;
+      const shape = polygonToShape(r.polygon);
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth,
+        bevelEnabled: false,
+      });
+      geometries.push(geo);
+    }
+    if (geometries.length === 0) return null;
+    const merged = mergeBufferGeometries(geometries);
+    for (const g of geometries) g.dispose();
+    return merged;
+  }, [roads]);
+
+  if (!geometry) return null;
 
   return (
     <mesh
@@ -83,14 +101,29 @@ function Road({
   );
 }
 
-function Water({ polygon }: { polygon: Polygon }) {
+/**
+ * Merge all water bodies into a single BufferGeometry.
+ */
+function MergedWater({ water }: { water: SceneData["water"] }) {
   const geometry = useMemo(() => {
-    const shape = polygonToShape(polygon);
-    return new THREE.ExtrudeGeometry(shape, {
-      depth: 0.5,
-      bevelEnabled: false,
-    });
-  }, [polygon]);
+    if (water.length === 0) return null;
+    const geometries: THREE.BufferGeometry[] = [];
+    for (const w of water) {
+      if (w.polygon.length < 3) continue;
+      const shape = polygonToShape(w.polygon);
+      const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: 0.5,
+        bevelEnabled: false,
+      });
+      geometries.push(geo);
+    }
+    if (geometries.length === 0) return null;
+    const merged = mergeBufferGeometries(geometries);
+    for (const g of geometries) g.dispose();
+    return merged;
+  }, [water]);
+
+  if (!geometry) return null;
 
   return (
     <mesh
@@ -105,6 +138,73 @@ function Water({ polygon }: { polygon: Polygon }) {
       />
     </mesh>
   );
+}
+
+/**
+ * Merge an array of BufferGeometries into one.
+ * Simple manual merge — avoids importing BufferGeometryUtils.
+ */
+function mergeBufferGeometries(
+  geometries: THREE.BufferGeometry[]
+): THREE.BufferGeometry {
+  let totalPositions = 0;
+  let totalNormals = 0;
+  let totalIndices = 0;
+
+  for (const g of geometries) {
+    const pos = g.getAttribute("position");
+    const norm = g.getAttribute("normal");
+    const idx = g.getIndex();
+    if (pos) totalPositions += pos.count * 3;
+    if (norm) totalNormals += norm.count * 3;
+    if (idx) totalIndices += idx.count;
+    else if (pos) totalIndices += pos.count; // non-indexed
+  }
+
+  const positions = new Float32Array(totalPositions);
+  const normals = new Float32Array(totalNormals);
+  const indices = new Uint32Array(totalIndices);
+
+  let posOffset = 0;
+  let normOffset = 0;
+  let idxOffset = 0;
+  let vertexOffset = 0;
+
+  for (const g of geometries) {
+    const pos = g.getAttribute("position") as THREE.BufferAttribute | null;
+    const norm = g.getAttribute("normal") as THREE.BufferAttribute | null;
+    const idx = g.getIndex();
+
+    if (pos) {
+      positions.set(
+        (pos.array as Float32Array).subarray(0, pos.count * 3),
+        posOffset
+      );
+      posOffset += pos.count * 3;
+    }
+    if (norm) {
+      normals.set(
+        (norm.array as Float32Array).subarray(0, norm.count * 3),
+        normOffset
+      );
+      normOffset += norm.count * 3;
+    }
+    if (idx) {
+      for (let i = 0; i < idx.count; i++) {
+        indices[idxOffset + i] = idx.getX(i) + vertexOffset;
+      }
+      idxOffset += idx.count;
+    }
+    if (pos) vertexOffset += pos.count;
+  }
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  if (totalNormals > 0) {
+    merged.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+  }
+  merged.setIndex(new THREE.BufferAttribute(indices, 1));
+  return merged;
 }
 
 function BasePlate({
@@ -303,8 +403,8 @@ export function SceneLighting() {
         intensity={1.0}
         color="#fff8ee"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
         shadow-camera-left={-400}
         shadow-camera-right={400}
         shadow-camera-top={400}
@@ -351,15 +451,9 @@ export function CityScene({ sceneData }: { sceneData: SceneData }) {
           widthMm={sceneData.modelWidthMm}
           depthMm={sceneData.modelDepthMm}
         />
-        {sceneData.roads.map((r, i) => (
-          <Road key={`r-${i}`} polygon={r.polygon} kind={r.kind} />
-        ))}
-        {sceneData.buildings.map((b, i) => (
-          <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
-        ))}
-        {sceneData.water.map((w, i) => (
-          <Water key={`w-${i}`} polygon={w.polygon} />
-        ))}
+        <MergedRoads roads={sceneData.roads} />
+        <MergedBuildings buildings={sceneData.buildings} />
+        <MergedWater water={sceneData.water} />
       </group>
     </>
   );
