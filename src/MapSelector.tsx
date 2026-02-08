@@ -31,6 +31,7 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   const mapRef = useRef<maplibregl.Map | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const dimensionsRef = useRef<HTMLDivElement>(null);
+  const mapAreaRef = useRef<HTMLDivElement>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,6 +70,40 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
     dimEl.textContent = `${fmt(metersW)} × ${fmt(metersH)}`;
   }, []);
+
+  // ---- Keep selection frame as a perfect square ----
+  const updateFrameLayout = useCallback(() => {
+    const container = mapAreaRef.current;
+    const frame = frameRef.current;
+    const dimEl = dimensionsRef.current;
+    if (!container || !frame) return;
+
+    const { width, height } = container.getBoundingClientRect();
+    if (width === 0 || height === 0) return;
+
+    const padding = 0.12;
+    const maxW = width * (1 - 2 * padding);
+    const maxH = height * (1 - 2 * padding);
+    const size = Math.min(maxW, maxH);
+
+    frame.style.width = `${size}px`;
+    frame.style.height = `${size}px`;
+    frame.style.top = `${(height - size) / 2}px`;
+    frame.style.left = `${(width - size) / 2}px`;
+
+    if (dimEl) {
+      dimEl.style.top = `${(height + size) / 2 + 8}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = mapAreaRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(updateFrameLayout);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [updateFrameLayout]);
 
   // ---- Resize map when tab becomes visible ----
   useEffect(() => {
@@ -379,6 +414,7 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
 
       {/* Map + selection frame overlay */}
       <div
+        ref={mapAreaRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -389,15 +425,16 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       >
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-        {/* Selection frame — darkened outside, clear inside */}
+        {/* Selection frame — always square, darkened outside, clear inside */}
         <div
           ref={frameRef}
           style={{
             position: "absolute",
+            /* size & position set by updateFrameLayout via ResizeObserver */
             top: "12%",
-            left: "10%",
-            right: "10%",
-            bottom: "12%",
+            left: "12%",
+            width: "76%",
+            height: "76%",
             border: "2.5px dashed #3b82f6",
             borderRadius: 4,
             boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.25)",
@@ -406,14 +443,13 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
           }}
         />
 
-        {/* Dimensions badge */}
+        {/* Dimensions badge — vertical position set by updateFrameLayout */}
         <div
           ref={dimensionsRef}
           style={{
             position: "absolute",
-            bottom: "12%",
             left: "50%",
-            transform: "translate(-50%, 100%) translateY(8px)",
+            transform: "translateX(-50%)",
             background: "rgba(0,0,0,0.7)",
             backdropFilter: "blur(8px)",
             color: "#fff",
