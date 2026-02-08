@@ -1,4 +1,4 @@
-import type { Bounds, Point2D, Polygon } from "./types";
+import type { Bounds, Point2D, Polygon, RoadData } from "./types";
 
 /**
  * Fixed physical footprint of the model in millimetres.
@@ -203,4 +203,133 @@ export function buildingHeightMm(
   const mm = metres * scaleMMperM;
   // Clamp so buildings don't dwarf the base
   return Math.min(mm, MAX_BUILDING_HEIGHT_MM);
+}
+
+/**
+ * Classify an OSM highway tag into a road kind for width/styling.
+ */
+export function classifyRoad(
+  highway: string
+): RoadData["kind"] {
+  switch (highway) {
+    case "motorway":
+    case "trunk":
+    case "primary":
+    case "secondary":
+    case "motorway_link":
+    case "trunk_link":
+    case "primary_link":
+    case "secondary_link":
+      return "major";
+    case "tertiary":
+    case "residential":
+    case "unclassified":
+    case "living_street":
+    case "service":
+    case "tertiary_link":
+      return "minor";
+    default:
+      return "path";
+  }
+}
+
+/**
+ * Get road half-width in real-world metres based on classification.
+ */
+function roadHalfWidthMetres(kind: RoadData["kind"]): number {
+  switch (kind) {
+    case "major":
+      return 6;
+    case "minor":
+      return 3;
+    case "path":
+      return 1.5;
+  }
+}
+
+/**
+ * Buffer a line (array of 2D points in model mm) into a polygon strip.
+ * Each segment gets a perpendicular offset to create the road width.
+ */
+export function bufferLineToPolygon(
+  line: Point2D[],
+  halfWidthMm: number
+): Polygon {
+  if (line.length < 2) return [];
+
+  const left: Point2D[] = [];
+  const right: Point2D[] = [];
+
+  for (let i = 0; i < line.length; i++) {
+    let nx: number, ny: number;
+
+    if (i === 0) {
+      // First point: use direction to next point
+      const dx = line[1][0] - line[0][0];
+      const dy = line[1][1] - line[0][1];
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      nx = -dy / len;
+      ny = dx / len;
+    } else if (i === line.length - 1) {
+      // Last point: use direction from previous point
+      const dx = line[i][0] - line[i - 1][0];
+      const dy = line[i][1] - line[i - 1][1];
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      nx = -dy / len;
+      ny = dx / len;
+    } else {
+      // Middle point: average of the two adjacent segment normals
+      const dx1 = line[i][0] - line[i - 1][0];
+      const dy1 = line[i][1] - line[i - 1][1];
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) || 1;
+      const nx1 = -dy1 / len1;
+      const ny1 = dx1 / len1;
+
+      const dx2 = line[i + 1][0] - line[i][0];
+      const dy2 = line[i + 1][1] - line[i][1];
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
+      const nx2 = -dy2 / len2;
+      const ny2 = dx2 / len2;
+
+      nx = (nx1 + nx2) / 2;
+      ny = (ny1 + ny2) / 2;
+      const nlen = Math.sqrt(nx * nx + ny * ny) || 1;
+      nx /= nlen;
+      ny /= nlen;
+    }
+
+    left.push([line[i][0] + nx * halfWidthMm, line[i][1] + ny * halfWidthMm]);
+    right.push([line[i][0] - nx * halfWidthMm, line[i][1] - ny * halfWidthMm]);
+  }
+
+  // Form a closed polygon: left side forward, right side reversed
+  return [...left, ...right.reverse()];
+}
+
+/**
+ * Project a road linestring (lat/lon) to model-space and buffer it
+ * into a polygon strip, clipped to the base plate.
+ */
+export function projectRoad(
+  coords: [number, number][],
+  bounds: Bounds,
+  scaleMMperM: number,
+  kind: RoadData["kind"],
+  modelWidthMm: number,
+  modelDepthMm: number
+): Polygon {
+  // Project line points to model mm
+  const line: Point2D[] = coords.map(([lat, lon]) => {
+    const [xm, ym] = latLonToLocalMetres(lat, lon, bounds);
+    return [xm * scaleMMperM, ym * scaleMMperM] as Point2D;
+  });
+
+  const halfWidthMm = roadHalfWidthMetres(kind) * scaleMMperM;
+  const poly = bufferLineToPolygon(line, halfWidthMm);
+  if (poly.length < 3) return [];
+
+  // Clip to base plate
+  const halfW = modelWidthMm / 2;
+  const halfD = modelDepthMm / 2;
+  return clipPolygon(poly, -halfW, -halfD, halfW, halfD);
 }
