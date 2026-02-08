@@ -12,7 +12,7 @@ interface SearchResult {
 }
 
 interface Props {
-  onBoundsSelected: (bounds: Bounds) => void;
+  onBoundsSelected: (bounds: Bounds, locationName?: string) => void;
   /** When controlled by a tab layout, signals whether this pane is visible. */
   visible?: boolean;
 }
@@ -201,8 +201,10 @@ export default function MapSelector({ onBoundsSelected, visible }: Props) {
     ]);
 
     const bounds: Bounds = [br.lat, tl.lng, tl.lat, br.lng];
-    onBoundsSelected(bounds);
-  }, [onBoundsSelected]);
+    // Extract a short location name from the search query
+    const name = searchQuery.split(",")[0].trim() || "";
+    onBoundsSelected(bounds, name);
+  }, [onBoundsSelected, searchQuery]);
 
   return (
     <div

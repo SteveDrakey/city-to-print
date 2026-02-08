@@ -1,173 +1,135 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import MapSelector from "./MapSelector";
-import ModelPreview from "./ModelPreview";
+import ProductPage from "./ProductPage";
+import { ViewerOverlay } from "./ModelPreview";
 import { useOverpassData } from "./useOverpassData";
 import type { Bounds } from "./types";
 
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(
-    () => window.innerWidth < breakpoint
-  );
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < breakpoint);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [breakpoint]);
-  return isMobile;
-}
-
 export default function App() {
   const { loading, error, sceneData, fetchData } = useOverpassData();
-  const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<"map" | "preview">("map");
-
-  const handleBoundsSelected = useCallback(
-    (bounds: Bounds) => {
-      fetchData(bounds);
-      if (isMobile) setActiveTab("preview");
-    },
-    [fetchData, isMobile]
-  );
+  const [locationName, setLocationName] = useState("");
+  const [showViewer, setShowViewer] = useState(false);
+  const productRef = useRef<HTMLDivElement>(null);
 
   const fontFamily =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-  if (isMobile) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100vw",
-          height: "100vh",
-          fontFamily,
-          overflow: "hidden",
-        }}
-      >
-        {/* Tab bar */}
-        <div style={{ display: "flex", background: "#16213e", flexShrink: 0 }}>
-          {(["map", "preview"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                flex: 1,
-                padding: "14px 0",
-                background: activeTab === tab ? "#1e3a5f" : "transparent",
-                color: "#fff",
-                border: "none",
-                borderBottom:
-                  activeTab === tab
-                    ? "3px solid #3b82f6"
-                    : "3px solid transparent",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: "pointer",
-                letterSpacing: 0.3,
-              }}
-            >
-              {tab === "map" ? "Map Selection" : "Print Preview"}
-            </button>
-          ))}
-        </div>
+  const handleBoundsSelected = useCallback(
+    (bounds: Bounds, name?: string) => {
+      fetchData(bounds);
+      if (name) setLocationName(name);
+    },
+    [fetchData]
+  );
 
-        {/* Content — both mounted, toggle visibility so map keeps state */}
-        <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: activeTab === "map" ? "flex" : "none",
-            }}
-          >
-            <MapSelector
-              onBoundsSelected={handleBoundsSelected}
-              visible={activeTab === "map"}
-            />
-          </div>
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: activeTab === "preview" ? "flex" : "none",
-            }}
-          >
-            <ModelPreview
-              sceneData={sceneData}
-              loading={loading}
-              error={error}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Auto-scroll to product page when scene data arrives
+  useEffect(() => {
+    if (sceneData && productRef.current) {
+      productRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [sceneData]);
 
-  // Desktop layout
   return (
-    <div
-      style={{
-        display: "flex",
-        width: "100vw",
-        height: "100vh",
-        fontFamily,
-        overflow: "hidden",
-      }}
-    >
-      {/* Left pane: map + controls */}
+    <div style={{ fontFamily, minHeight: "100vh" }}>
+      {/* ── Map Section (takes full viewport height) ── */}
       <div
         style={{
-          flex: 1,
+          width: "100%",
+          height: "100vh",
           display: "flex",
           flexDirection: "column",
-          borderRight: "2px solid #222",
+          position: "relative",
         }}
       >
+        {/* Header */}
         <div
           style={{
-            padding: "10px 14px",
+            padding: "12px 20px",
             background: "#16213e",
             color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            letterSpacing: 0.3,
+            fontSize: 16,
+            fontWeight: 700,
+            letterSpacing: 0.4,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          City to Print &mdash; Map Selection
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          City to Print
         </div>
+
+        {/* Map */}
         <div style={{ flex: 1, minHeight: 0 }}>
           <MapSelector onBoundsSelected={handleBoundsSelected} />
         </div>
       </div>
 
-      {/* Right pane: 3D preview */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      {/* ── Loading indicator ── */}
+      {loading && (
         <div
           style={{
-            padding: "10px 14px",
-            background: "#16213e",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            letterSpacing: 0.3,
+            padding: "64px 24px",
+            textAlign: "center",
+            background: "#faf9f7",
           }}
         >
-          Print Preview
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              border: "3px solid #ddd",
+              borderTopColor: "#3b82f6",
+              borderRadius: "50%",
+              margin: "0 auto",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+          <div style={{ marginTop: 16, fontSize: 14, color: "#888" }}>
+            Building your city model...
+          </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <ModelPreview
+      )}
+
+      {/* ── Error notice ── */}
+      {error && !loading && (
+        <div
+          style={{
+            padding: "12px 24px",
+            background: "#fef2f2",
+            color: "#b91c1c",
+            fontSize: 13,
+            textAlign: "center",
+            borderTop: "1px solid #fecaca",
+          }}
+        >
+          Overpass API issue: {error} — showing generated preview data
+        </div>
+      )}
+
+      {/* ── Product Page (appears after generation) ── */}
+      {sceneData && !loading && (
+        <div ref={productRef}>
+          <ProductPage
             sceneData={sceneData}
-            loading={loading}
-            error={error}
+            locationName={locationName}
+            onOpenViewer={() => setShowViewer(true)}
           />
         </div>
-      </div>
+      )}
+
+      {/* ── Fullscreen 3D Viewer Overlay ── */}
+      {showViewer && sceneData && (
+        <ViewerOverlay
+          sceneData={sceneData}
+          onClose={() => setShowViewer(false)}
+        />
+      )}
     </div>
   );
 }
