@@ -198,12 +198,14 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
             type: "raster",
             source: "osm",
             minzoom: 0,
-            maxzoom: 19,
+            maxzoom: 16,
           },
         ],
       },
       center: [13.405, 52.52],
       zoom: 13,
+      maxZoom: 16,
+      maxTileCacheSize: 64,
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");
