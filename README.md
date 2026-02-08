@@ -21,7 +21,11 @@ No design skills needed. No 3D modelling software. Just pick a place and go.
 - **Water** — rivers, lakes, and reservoirs show up as flat blue features
 - **A base plate** — everything sits on a solid base so the print holds together
 
-## Running locally
+---
+
+## Development
+
+### Setup
 
 ```bash
 npm install
@@ -30,6 +34,31 @@ npm run dev
 
 Then open the URL shown in your terminal.
 
-## Tech stack
+### Build
 
-React, TypeScript, Vite, Three.js (via React Three Fiber), MapLibre GL, and OpenStreetMap data via the Overpass API.
+```bash
+npm run build      # type-check (tsc) + production build (vite)
+npm run preview    # serve the production build locally
+```
+
+### Project structure
+
+```
+src/
+  main.tsx            — entry point
+  App.tsx             — root layout (split pane on desktop, tabs on mobile)
+  MapSelector.tsx     — interactive map with search and area framing
+  ModelPreview.tsx    — 3D scene with room, table, and city model
+  useOverpassData.ts  — fetches and parses OpenStreetMap data
+  geometryUtils.ts    — coordinate projection, polygon clipping, scaling
+  types.ts            — shared TypeScript interfaces
+```
+
+### Tech stack
+
+- **React 18** + **TypeScript** — UI and type safety
+- **Vite** — dev server and bundler
+- **Three.js** via **React Three Fiber** / **Drei** — 3D rendering
+- **MapLibre GL** — interactive map
+- **Overpass API** — building, road, and water data from OpenStreetMap
+- **Nominatim API** — location search
