@@ -190,7 +190,8 @@ export function useOverpassData() {
         const coords = resolveWayCoords(way.nodes, nodeMap);
         if (!coords || coords.length < 3) continue;
 
-        const poly = projectPolygon(coords, bounds, scaleMMperM);
+        const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
+        if (poly.length < 3) continue; // clipped away entirely
 
         if (kind === "building") {
           buildings.push({
@@ -215,7 +216,8 @@ export function useOverpassData() {
           const coords = resolveWayCoords(way.nodes, nodeMap);
           if (!coords || coords.length < 3) continue;
 
-          const poly = projectPolygon(coords, bounds, scaleMMperM);
+          const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
+          if (poly.length < 3) continue; // clipped away entirely
 
           if (kind === "building") {
             buildings.push({

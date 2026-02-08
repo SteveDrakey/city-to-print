@@ -78,7 +78,7 @@ export default function App() {
             letterSpacing: 0.3,
           }}
         >
-          3D Print Preview
+          Print Preview
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
           <ModelPreview

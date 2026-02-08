@@ -6,6 +6,13 @@ import type { Bounds } from "./types";
 // We'll inject it via a side-effect import handled by Vite.
 import "maplibre-gl/dist/maplibre-gl.css";
 
+interface SearchResult {
+  display_name: string;
+  lat: string;
+  lon: string;
+  boundingbox: [string, string, string, string]; // [south, north, west, east]
+}
+
 interface Props {
   onBoundsSelected: (bounds: Bounds) => void;
   onClear: () => void;
@@ -31,6 +38,61 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
   );
   const [selectedBounds, setSelectedBounds] = useState<Bounds | null>(null);
   const [cursorPos, setCursorPos] = useState<maplibregl.LngLat | null>(null);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+        { headers: { "Accept": "application/json" } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: SearchResult[] = await res.json();
+      setSearchResults(data);
+      setShowResults(data.length > 0);
+    } catch (err) {
+      console.error("Nominatim search failed:", err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  const handleSearchInput = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = setTimeout(() => handleSearch(value), 400);
+    },
+    [handleSearch]
+  );
+
+  const handleSelectResult = useCallback(
+    (result: SearchResult) => {
+      setShowResults(false);
+      setSearchQuery(result.display_name);
+      const map = mapRef.current;
+      if (!map) return;
+      map.flyTo({
+        center: [parseFloat(result.lon), parseFloat(result.lat)],
+        zoom: 14,
+        duration: 1500,
+      });
+    },
+    []
+  );
 
   // ---- Initialise map ----
   useEffect(() => {
@@ -225,9 +287,68 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Search bar */}
+      <div style={{ position: "relative", padding: "8px 12px", background: "#f0f0f0", borderBottom: "1px solid #ddd" }}>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => handleSearchInput(e.target.value)}
+          onFocus={() => searchResults.length > 0 && setShowResults(true)}
+          placeholder="Search for a city or location..."
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            fontSize: 14,
+            border: "1px solid #ccc",
+            borderRadius: 6,
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+        {searchLoading && (
+          <span style={{ position: "absolute", right: 22, top: 16, fontSize: 12, color: "#888" }}>
+            searching...
+          </span>
+        )}
+        {showResults && searchResults.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 12,
+              right: 12,
+              background: "#fff",
+              border: "1px solid #ddd",
+              borderRadius: "0 0 6px 6px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              zIndex: 1000,
+              maxHeight: 200,
+              overflowY: "auto",
+            }}
+          >
+            {searchResults.map((r, i) => (
+              <div
+                key={i}
+                onClick={() => handleSelectResult(r)}
+                style={{
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  borderBottom: i < searchResults.length - 1 ? "1px solid #eee" : "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f5")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                {r.display_name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <div
         ref={containerRef}
         style={{ flex: 1, minHeight: 0 }}
+        onClick={() => setShowResults(false)}
       />
       <div
         style={{
