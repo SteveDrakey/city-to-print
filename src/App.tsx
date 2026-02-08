@@ -10,6 +10,7 @@ export default function App() {
   const { loading, error, sceneData, fetchData, retryAttempt, maxRetries } =
     useOverpassData();
   const [locationName, setLocationName] = useState("");
+  const [areaDescription, setAreaDescription] = useState("");
   const [showViewer, setShowViewer] = useState(false);
   const productRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -19,8 +20,57 @@ export default function App() {
 
   const handleBoundsSelected = useCallback(
     (bounds: Bounds, name?: string) => {
+      // Start Overpass data fetch immediately
       fetchData(bounds);
+      setAreaDescription("");
+
+      // Set search name as interim while we reverse geocode
       if (name) setLocationName(name);
+
+      // Reverse geocode the center of the selected bounds
+      const lat = (bounds[0] + bounds[2]) / 2;
+      const lon = (bounds[1] + bounds[3]) / 2;
+
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`,
+        { headers: { Accept: "application/json" } }
+      )
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data?.address) return name || "";
+          const addr = data.address;
+          const neighbourhood =
+            addr.suburb || addr.neighbourhood || addr.city_district || "";
+          const city =
+            addr.city || addr.town || addr.village || addr.municipality || "";
+
+          const parts: string[] = [];
+          if (neighbourhood) parts.push(neighbourhood);
+          if (city && city !== neighbourhood) parts.push(city);
+
+          const resolved =
+            parts.length > 0
+              ? parts.join(", ")
+              : name || (data.display_name?.split(",")[0] ?? "");
+          setLocationName(resolved);
+
+          // Return term for Wikipedia lookup (prefer city-level name)
+          return city || neighbourhood || name || "";
+        })
+        .then((wikiTerm) => {
+          if (!wikiTerm) return;
+          return fetch(
+            `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTerm)}`,
+            { headers: { Accept: "application/json" } }
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .then((wiki) => {
+              if (wiki?.extract) setAreaDescription(wiki.extract);
+            });
+        })
+        .catch(() => {
+          // Reverse geocode failed; keep the search name if we had one
+        });
     },
     [fetchData]
   );
@@ -124,6 +174,7 @@ export default function App() {
           <ProductPage
             sceneData={sceneData}
             locationName={locationName}
+            areaDescription={areaDescription}
             onOpenViewer={() => setShowViewer(true)}
           />
         </div>

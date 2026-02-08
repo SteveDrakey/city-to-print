@@ -43,10 +43,18 @@ const RENDER_JOBS = [
 interface Props {
   sceneData: SceneData;
   locationName: string;
+  areaDescription?: string;
   onOpenViewer: () => void;
 }
 
-export default function ProductPage({ sceneData, locationName, onOpenViewer }: Props) {
+/** Truncate text to a maximum number of sentences for a concise blurb. */
+function truncateToSentences(text: string, max = 3): string {
+  const sentences = text.match(/[^.!?]+[.!?]+/g);
+  if (!sentences) return text;
+  return sentences.slice(0, max).join(" ").trim();
+}
+
+export default function ProductPage({ sceneData, locationName, areaDescription, onOpenViewer }: Props) {
   const displayName = locationName || "Your Selected Area";
 
   // Sequential render-to-image state
@@ -244,6 +252,52 @@ export default function ProductPage({ sceneData, locationName, onOpenViewer }: P
             you can hold in your hands.
           </p>
         </div>
+
+        {/* ── About the area (from Wikipedia) ── */}
+        {areaDescription && (
+          <div
+            style={{
+              background: "#f5f3f0",
+              borderRadius: 12,
+              padding: "24px 28px",
+              marginBottom: 48,
+              borderLeft: "3px solid #3b82f6",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+                color: "#6b7280",
+                marginBottom: 12,
+              }}
+            >
+              About {displayName}
+            </p>
+            <p
+              style={{
+                fontSize: 15,
+                color: "#444",
+                lineHeight: 1.7,
+                margin: 0,
+              }}
+            >
+              {truncateToSentences(areaDescription)}
+            </p>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#aaa",
+                marginTop: 10,
+                marginBottom: 0,
+              }}
+            >
+              Source: Wikipedia
+            </p>
+          </div>
+        )}
 
         {/* ── Spec Cards ── */}
         <div
