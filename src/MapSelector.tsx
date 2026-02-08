@@ -2,53 +2,33 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import type { Bounds } from "./types";
 
-// MapLibre GL CSS is loaded via a <link> in index.html or imported here.
-// We'll inject it via a side-effect import handled by Vite.
 import "maplibre-gl/dist/maplibre-gl.css";
 
 interface SearchResult {
   display_name: string;
   lat: string;
   lon: string;
-  boundingbox: [string, string, string, string]; // [south, north, west, east]
+  boundingbox: [string, string, string, string];
 }
 
 interface Props {
   onBoundsSelected: (bounds: Bounds) => void;
-  onClear: () => void;
   /** When controlled by a tab layout, signals whether this pane is visible. */
   visible?: boolean;
 }
 
-const isTouchDevice =
-  typeof window !== "undefined" &&
-  ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-
 /**
- * Interactive map with rectangle selection.
+ * Interactive map with viewport-frame area selection.
  *
- * Two-tap/click workflow:
- *   1. Tap/click to set first corner (marker shown)
- *   2. Move mouse to see preview rectangle (desktop) or just navigate (mobile)
- *   3. Tap/click to set second corner → selection emitted
- *
- * A "Clear selection" button resets everything.
+ * A fixed selection rectangle overlays the map. The user pans & zooms
+ * to frame the area they want, then taps "Generate Preview" to capture
+ * the bounds. Works naturally on both touch and mouse devices.
  */
-export default function MapSelector({
-  onBoundsSelected,
-  onClear,
-  visible,
-}: Props) {
+export default function MapSelector({ onBoundsSelected, visible }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
-
-  // Selection state: null → picking first corner → picking second corner
-  const [firstCorner, setFirstCorner] = useState<maplibregl.LngLat | null>(
-    null
-  );
-  const [selectedBounds, setSelectedBounds] = useState<Bounds | null>(null);
-  const [cursorPos, setCursorPos] = useState<maplibregl.LngLat | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const dimensionsRef = useRef<HTMLDivElement>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,15 +37,48 @@ export default function MapSelector({
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ---- Resize map when tab becomes visible again ----
+  // ---- Dimensions display (updated directly on DOM for perf) ----
+  const updateDimensions = useCallback(() => {
+    const map = mapRef.current;
+    const frame = frameRef.current;
+    const dimEl = dimensionsRef.current;
+    if (!map || !frame || !dimEl) return;
+
+    const frameRect = frame.getBoundingClientRect();
+    if (frameRect.width === 0 || frameRect.height === 0) return;
+
+    const mapRect = map.getContainer().getBoundingClientRect();
+    const tl = map.unproject([
+      frameRect.left - mapRect.left,
+      frameRect.top - mapRect.top,
+    ]);
+    const br = map.unproject([
+      frameRect.right - mapRect.left,
+      frameRect.bottom - mapRect.top,
+    ]);
+
+    const latDiff = Math.abs(tl.lat - br.lat);
+    const lngDiff = Math.abs(tl.lng - br.lng);
+    const avgLat = (tl.lat + br.lat) / 2;
+    const metersH = latDiff * 111320;
+    const metersW = lngDiff * 111320 * Math.cos((avgLat * Math.PI) / 180);
+
+    const fmt = (m: number) =>
+      m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+    dimEl.textContent = `${fmt(metersW)} × ${fmt(metersH)}`;
+  }, []);
+
+  // ---- Resize map when tab becomes visible ----
   useEffect(() => {
     if (visible === false) return;
     const timer = setTimeout(() => {
       mapRef.current?.resize();
+      updateDimensions();
     }, 60);
     return () => clearTimeout(timer);
-  }, [visible]);
+  }, [visible, updateDimensions]);
 
+  // ---- Search handlers ----
   const handleSearch = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
       setSearchResults([]);
@@ -106,9 +119,23 @@ export default function MapSelector({
     if (!map) return;
     map.flyTo({
       center: [parseFloat(result.lon), parseFloat(result.lat)],
-      zoom: 14,
+      zoom: 15,
       duration: 1500,
     });
+  }, []);
+
+  const handleUseLocation = useCallback(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapRef.current?.flyTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 15,
+          duration: 1500,
+        });
+      },
+      (err) => console.error("Geolocation error:", err)
+    );
   }, []);
 
   // ---- Initialise map ----
@@ -117,7 +144,6 @@ export default function MapSelector({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      // OpenStreetMap raster tile server (free, no key required)
       style: {
         version: 8,
         sources: {
@@ -139,193 +165,55 @@ export default function MapSelector({
           },
         ],
       },
-      center: [13.405, 52.52], // Berlin default
+      center: [13.405, 52.52],
       zoom: 13,
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");
     mapRef.current = map;
 
+    map.on("move", updateDimensions);
+    map.on("load", updateDimensions);
+
     return () => {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [updateDimensions]);
 
-  // ---- Rectangle drawing source/layer ----
-  useEffect(() => {
+  // ---- Generate bounds from current frame position ----
+  const handleGenerate = useCallback(() => {
     const map = mapRef.current;
-    if (!map) return;
+    const frame = frameRef.current;
+    if (!map || !frame) return;
 
-    const onLoad = () => {
-      if (map.getSource("selection-rect")) return;
+    const frameRect = frame.getBoundingClientRect();
+    if (frameRect.width === 0 || frameRect.height === 0) return;
 
-      map.addSource("selection-rect", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
+    const mapRect = map.getContainer().getBoundingClientRect();
+    const tl = map.unproject([
+      frameRect.left - mapRect.left,
+      frameRect.top - mapRect.top,
+    ]);
+    const br = map.unproject([
+      frameRect.right - mapRect.left,
+      frameRect.bottom - mapRect.top,
+    ]);
 
-      map.addLayer({
-        id: "selection-rect-fill",
-        type: "fill",
-        source: "selection-rect",
-        paint: {
-          "fill-color": "#3b82f6",
-          "fill-opacity": 0.15,
-        },
-      });
-
-      map.addLayer({
-        id: "selection-rect-line",
-        type: "line",
-        source: "selection-rect",
-        paint: {
-          "line-color": "#3b82f6",
-          "line-width": 2,
-        },
-      });
-    };
-
-    if (map.loaded()) {
-      onLoad();
-    } else {
-      map.on("load", onLoad);
-    }
-  }, []);
-
-  // ---- Update rectangle geometry whenever corners change ----
-  const updateRect = useCallback(
-    (corner1: maplibregl.LngLat, corner2: maplibregl.LngLat) => {
-      const map = mapRef.current;
-      const src = map?.getSource("selection-rect") as
-        | maplibregl.GeoJSONSource
-        | undefined;
-      if (!src) return;
-
-      const sw = [
-        Math.min(corner1.lng, corner2.lng),
-        Math.min(corner1.lat, corner2.lat),
-      ];
-      const ne = [
-        Math.max(corner1.lng, corner2.lng),
-        Math.max(corner1.lat, corner2.lat),
-      ];
-
-      src.setData({
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [sw[0], sw[1]],
-              [ne[0], sw[1]],
-              [ne[0], ne[1]],
-              [sw[0], ne[1]],
-              [sw[0], sw[1]],
-            ],
-          ],
-        },
-      });
-    },
-    []
-  );
-
-  // ---- Map click handler ----
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const onClick = (e: maplibregl.MapMouseEvent) => {
-      if (selectedBounds) return; // already have a selection
-
-      if (!firstCorner) {
-        setFirstCorner(e.lngLat);
-      } else {
-        // Second click — finalise
-        const s = Math.min(firstCorner.lat, e.lngLat.lat);
-        const n = Math.max(firstCorner.lat, e.lngLat.lat);
-        const w = Math.min(firstCorner.lng, e.lngLat.lng);
-        const ee = Math.max(firstCorner.lng, e.lngLat.lng);
-        const bounds: Bounds = [s, w, n, ee];
-        updateRect(firstCorner, e.lngLat);
-        setSelectedBounds(bounds);
-        onBoundsSelected(bounds);
-        setCursorPos(null);
-      }
-    };
-
-    map.on("click", onClick);
-    return () => {
-      map.off("click", onClick);
-    };
-  }, [firstCorner, selectedBounds, onBoundsSelected, updateRect]);
-
-  // ---- Mouse-move for preview rectangle (desktop) ----
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const onMove = (e: maplibregl.MapMouseEvent) => {
-      if (!firstCorner || selectedBounds) return;
-      setCursorPos(e.lngLat);
-      updateRect(firstCorner, e.lngLat);
-    };
-
-    map.on("mousemove", onMove);
-    return () => {
-      map.off("mousemove", onMove);
-    };
-  }, [firstCorner, selectedBounds, updateRect]);
-
-  // ---- First-corner marker (visual feedback, especially useful on touch) ----
-  useEffect(() => {
-    const map = mapRef.current;
-    if (markerRef.current) {
-      markerRef.current.remove();
-      markerRef.current = null;
-    }
-    if (firstCorner && !selectedBounds && map) {
-      markerRef.current = new maplibregl.Marker({ color: "#3b82f6" })
-        .setLngLat(firstCorner)
-        .addTo(map);
-    }
-    return () => {
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
-      }
-    };
-  }, [firstCorner, selectedBounds]);
-
-  // ---- Clear ----
-  const handleClear = () => {
-    setFirstCorner(null);
-    setSelectedBounds(null);
-    setCursorPos(null);
-    onClear();
-
-    const src = mapRef.current?.getSource("selection-rect") as
-      | maplibregl.GeoJSONSource
-      | undefined;
-    src?.setData({ type: "FeatureCollection", features: [] });
-  };
-
-  // ---- Status text ----
-  const tapOrClick = isTouchDevice ? "Tap" : "Click";
-  let status: string;
-  if (selectedBounds) {
-    const [s, w, n, e] = selectedBounds;
-    status = `Selected: ${s.toFixed(4)}°N ${w.toFixed(4)}°E → ${n.toFixed(4)}°N ${e.toFixed(4)}°E`;
-  } else if (firstCorner) {
-    status = `Corner 1 set. ${tapOrClick} to set the second corner.`;
-  } else {
-    status = `${tapOrClick} on the map to set the first corner of your selection.`;
-  }
+    const bounds: Bounds = [br.lat, tl.lng, tl.lat, br.lng];
+    onBoundsSelected(bounds);
+  }, [onBoundsSelected]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
-      {/* Search bar */}
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        width: "100%",
+      }}
+    >
+      {/* Search bar + location button */}
       <div
         style={{
           position: "relative",
@@ -333,118 +221,212 @@ export default function MapSelector({
           background: "#f0f0f0",
           borderBottom: "1px solid #ddd",
           flexShrink: 0,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
         }}
       >
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => handleSearchInput(e.target.value)}
-          onFocus={() => searchResults.length > 0 && setShowResults(true)}
-          placeholder="Search for a city or location..."
+        <button
+          onClick={handleUseLocation}
+          title="Use my location"
           style={{
-            width: "100%",
-            padding: "10px 14px",
-            fontSize: 16, // 16px prevents iOS auto-zoom on focus
+            padding: "10px 12px",
+            background: "#fff",
             border: "1px solid #ccc",
             borderRadius: 6,
-            outline: "none",
-            boxSizing: "border-box",
-          }}
-        />
-        {searchLoading && (
-          <span
-            style={{
-              position: "absolute",
-              right: 22,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 12,
-              color: "#888",
-            }}
-          >
-            searching...
-          </span>
-        )}
-        {showResults && searchResults.length > 0 && (
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 12,
-              right: 12,
-              background: "#fff",
-              border: "1px solid #ddd",
-              borderRadius: "0 0 6px 6px",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              zIndex: 1000,
-              maxHeight: 250,
-              overflowY: "auto",
-            }}
-          >
-            {searchResults.map((r, i) => (
-              <div
-                key={i}
-                onClick={() => handleSelectResult(r)}
-                style={{
-                  padding: "12px 16px",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  minHeight: 44, // Apple-recommended minimum touch target
-                  display: "flex",
-                  alignItems: "center",
-                  borderBottom:
-                    i < searchResults.length - 1
-                      ? "1px solid #eee"
-                      : "none",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#f5f5f5")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "#fff")
-                }
-              >
-                {r.display_name}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div
-        ref={containerRef}
-        style={{ flex: 1, minHeight: 0 }}
-        onClick={() => setShowResults(false)}
-      />
-      <div
-        style={{
-          padding: "10px 14px",
-          background: "#1a1a2e",
-          color: "#e0e0e0",
-          fontSize: 13,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ flex: 1, lineHeight: 1.4 }}>{status}</span>
-        <button
-          onClick={handleClear}
-          style={{
-            padding: "10px 18px",
-            background: "#ef4444",
-            color: "#fff",
-            border: "none",
-            borderRadius: 4,
             cursor: "pointer",
-            fontSize: 14,
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-            minHeight: 44, // touch-friendly
+            flexShrink: 0,
+            minHeight: 44,
+            minWidth: 44,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          Clear
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#333"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="4" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+          </svg>
+        </button>
+        <div style={{ position: "relative", flex: 1 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchInput(e.target.value)}
+            onFocus={() => searchResults.length > 0 && setShowResults(true)}
+            placeholder="Search for a city or location..."
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              fontSize: 16,
+              border: "1px solid #ccc",
+              borderRadius: 6,
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+          {searchLoading && (
+            <span
+              style={{
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: 12,
+                color: "#888",
+              }}
+            >
+              searching...
+            </span>
+          )}
+          {showResults && searchResults.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                background: "#fff",
+                border: "1px solid #ddd",
+                borderRadius: "0 0 6px 6px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                zIndex: 1000,
+                maxHeight: 250,
+                overflowY: "auto",
+              }}
+            >
+              {searchResults.map((r, i) => (
+                <div
+                  key={i}
+                  onClick={() => handleSelectResult(r)}
+                  style={{
+                    padding: "12px 16px",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    minHeight: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    borderBottom:
+                      i < searchResults.length - 1
+                        ? "1px solid #eee"
+                        : "none",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#f5f5f5")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "#fff")
+                  }
+                >
+                  {r.display_name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Map + selection frame overlay */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          position: "relative",
+          overflow: "hidden",
+        }}
+        onClick={() => setShowResults(false)}
+      >
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+
+        {/* Selection frame — darkened outside, clear inside */}
+        <div
+          ref={frameRef}
+          style={{
+            position: "absolute",
+            top: "12%",
+            left: "10%",
+            right: "10%",
+            bottom: "12%",
+            border: "2.5px dashed #3b82f6",
+            borderRadius: 4,
+            boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.25)",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
+        {/* Dimensions badge */}
+        <div
+          ref={dimensionsRef}
+          style={{
+            position: "absolute",
+            bottom: "12%",
+            left: "50%",
+            transform: "translate(-50%, 100%) translateY(8px)",
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(8px)",
+            color: "#fff",
+            padding: "6px 14px",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            letterSpacing: 0.3,
+            pointerEvents: "none",
+            zIndex: 2,
+            whiteSpace: "nowrap",
+          }}
+        />
+      </div>
+
+      {/* Bottom action bar */}
+      <div
+        style={{
+          padding: "12px 16px",
+          background: "#1a1a2e",
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            color: "#a0a0b0",
+            fontSize: 13,
+            lineHeight: 1.4,
+          }}
+        >
+          Pan &amp; zoom to frame your area
+        </span>
+        <button
+          onClick={handleGenerate}
+          style={{
+            padding: "12px 24px",
+            background: "#3b82f6",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontSize: 15,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            minHeight: 48,
+          }}
+        >
+          Generate Preview
         </button>
       </div>
     </div>

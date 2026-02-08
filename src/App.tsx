@@ -29,10 +29,6 @@ export default function App() {
     [fetchData, isMobile]
   );
 
-  const handleClear = useCallback(() => {
-    if (isMobile) setActiveTab("map");
-  }, [isMobile]);
-
   const fontFamily =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
@@ -86,7 +82,6 @@ export default function App() {
           >
             <MapSelector
               onBoundsSelected={handleBoundsSelected}
-              onClear={handleClear}
               visible={activeTab === "map"}
             />
           </div>
@@ -108,7 +103,7 @@ export default function App() {
     );
   }
 
-  // Desktop layout (unchanged)
+  // Desktop layout
   return (
     <div
       style={{
@@ -141,10 +136,7 @@ export default function App() {
           City to Print &mdash; Map Selection
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <MapSelector
-            onBoundsSelected={handleBoundsSelected}
-            onClear={handleClear}
-          />
+          <MapSelector onBoundsSelected={handleBoundsSelected} />
         </div>
       </div>
 
