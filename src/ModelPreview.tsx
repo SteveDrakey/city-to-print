@@ -518,7 +518,7 @@ const dividerStyle: React.CSSProperties = {
 
 const dragHintStyle: React.CSSProperties = {
   position: "absolute",
-  bottom: 16,
+  top: 16,
   right: 16,
   background: "rgba(0,0,0,0.45)",
   backdropFilter: "blur(8px)",
