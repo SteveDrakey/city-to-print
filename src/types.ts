@@ -33,3 +33,12 @@ export interface SceneData {
   /** Depth of the model in mm (≤200) */
   modelDepthMm: number;
 }
+
+/** Available room scenes for the 3D preview */
+export type SceneType = "desk" | "wallShelf" | "pedestal" | "bookshelf" | "windowSill";
+
+export interface SceneOption {
+  id: SceneType;
+  label: string;
+  description: string;
+}

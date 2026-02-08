@@ -3,7 +3,7 @@ import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { SceneData, Polygon, RoadData } from "./types";
+import type { SceneData, SceneType, Polygon, RoadData } from "./types";
 import { BASE_THICKNESS_MM } from "./geometryUtils";
 
 // ---- Helpers to turn 2D polygon outlines into three.js geometry ----
@@ -270,16 +270,245 @@ function Room() {
   );
 }
 
+// ---- Wall Shelf scene: floating shelf on living room wall ----
+
+function WallShelfRoom() {
+  return (
+    <group>
+      {/* Floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -400, 0]} receiveShadow>
+        <planeGeometry args={[1500, 1500]} />
+        <meshStandardMaterial color="#8b7355" roughness={0.75} metalness={0.01} />
+      </mesh>
+      {/* Back wall */}
+      <mesh position={[0, 100, -300]} receiveShadow>
+        <planeGeometry args={[1500, 1200]} />
+        <meshStandardMaterial color="#e8ddd0" roughness={0.95} />
+      </mesh>
+      {/* Floating shelf */}
+      <mesh position={[0, -10, -60]} receiveShadow castShadow>
+        <boxGeometry args={[420, 12, 200]} />
+        <meshStandardMaterial color="#6b4226" roughness={0.5} metalness={0.02} />
+      </mesh>
+      {/* Shelf bracket left */}
+      <mesh position={[-160, -30, -155]} castShadow>
+        <boxGeometry args={[6, 36, 6]} />
+        <meshStandardMaterial color="#2a2a2a" roughness={0.4} metalness={0.3} />
+      </mesh>
+      {/* Shelf bracket right */}
+      <mesh position={[160, -30, -155]} castShadow>
+        <boxGeometry args={[6, 36, 6]} />
+        <meshStandardMaterial color="#2a2a2a" roughness={0.4} metalness={0.3} />
+      </mesh>
+      {/* Small framed picture on wall */}
+      <group position={[250, 100, -298]}>
+        {/* Frame */}
+        <mesh>
+          <boxGeometry args={[80, 100, 4]} />
+          <meshStandardMaterial color="#3d2b1f" roughness={0.5} />
+        </mesh>
+        {/* Canvas/picture area */}
+        <mesh position={[0, 0, 2.5]}>
+          <planeGeometry args={[64, 84]} />
+          <meshStandardMaterial color="#c9b99a" roughness={0.9} />
+        </mesh>
+      </group>
+      {/* Small decorative vase */}
+      <group position={[-165, 6, -30]}>
+        <mesh position={[0, 10, 0]} castShadow>
+          <cylinderGeometry args={[8, 10, 30, 12]} />
+          <meshStandardMaterial color="#4a6741" roughness={0.6} metalness={0.05} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+// ---- Display Pedestal scene: museum/gallery style ----
+
+function PedestalRoom() {
+  return (
+    <group>
+      {/* Floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -350, 0]} receiveShadow>
+        <planeGeometry args={[1500, 1500]} />
+        <meshStandardMaterial color="#d4cfc8" roughness={0.5} metalness={0.02} />
+      </mesh>
+      {/* Back wall */}
+      <mesh position={[0, 150, -450]} receiveShadow>
+        <planeGeometry args={[1500, 1200]} />
+        <meshStandardMaterial color="#f5f3f0" roughness={0.95} />
+      </mesh>
+      {/* Pedestal column */}
+      <mesh position={[0, -175, 0]} receiveShadow castShadow>
+        <boxGeometry args={[260, 350, 260]} />
+        <meshStandardMaterial color="#f0ede8" roughness={0.35} metalness={0.0} />
+      </mesh>
+      {/* Pedestal top cap */}
+      <mesh position={[0, 2, 0]} receiveShadow castShadow>
+        <boxGeometry args={[280, 6, 280]} />
+        <meshStandardMaterial color="#e8e4de" roughness={0.3} metalness={0.0} />
+      </mesh>
+      {/* Subtle floor line */}
+      <mesh position={[0, -349, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[280, 300, 32]} />
+        <meshStandardMaterial color="#c4bfb8" roughness={0.6} transparent opacity={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+// ---- Bookshelf scene: model on a shelf surrounded by books ----
+
+function BookshelfRoom() {
+  const shelfColor = "#5c3d1e";
+  const shelfW = 500;
+  const shelfD = 200;
+  const shelfThick = 10;
+
+  return (
+    <group>
+      {/* Back wall */}
+      <mesh position={[0, 100, -300]} receiveShadow>
+        <planeGeometry args={[1500, 1200]} />
+        <meshStandardMaterial color="#f0ebe3" roughness={0.95} />
+      </mesh>
+      {/* Bottom shelf */}
+      <mesh position={[0, -12, -50]} receiveShadow castShadow>
+        <boxGeometry args={[shelfW, shelfThick, shelfD]} />
+        <meshStandardMaterial color={shelfColor} roughness={0.55} metalness={0.02} />
+      </mesh>
+      {/* Top shelf above */}
+      <mesh position={[0, 200, -50]} receiveShadow castShadow>
+        <boxGeometry args={[shelfW, shelfThick, shelfD]} />
+        <meshStandardMaterial color={shelfColor} roughness={0.55} metalness={0.02} />
+      </mesh>
+      {/* Left side panel */}
+      <mesh position={[-(shelfW / 2 + 5), 94, -50]} castShadow>
+        <boxGeometry args={[10, 224, shelfD]} />
+        <meshStandardMaterial color={shelfColor} roughness={0.55} metalness={0.02} />
+      </mesh>
+      {/* Right side panel */}
+      <mesh position={[(shelfW / 2 + 5), 94, -50]} castShadow>
+        <boxGeometry args={[10, 224, shelfD]} />
+        <meshStandardMaterial color={shelfColor} roughness={0.55} metalness={0.02} />
+      </mesh>
+      {/* Books to the left of model */}
+      {[
+        { x: -175, w: 18, h: 140, color: "#8b2500" },
+        { x: -155, w: 14, h: 130, color: "#2c3e50" },
+        { x: -138, w: 20, h: 145, color: "#1a4a3a" },
+        { x: -116, w: 12, h: 125, color: "#4a3728" },
+      ].map((book, i) => (
+        <mesh key={`bl${i}`} position={[book.x, book.h / 2 - 7, -60]} castShadow>
+          <boxGeometry args={[book.w, book.h, 100]} />
+          <meshStandardMaterial color={book.color} roughness={0.7} />
+        </mesh>
+      ))}
+      {/* Books to the right of model */}
+      {[
+        { x: 130, w: 16, h: 135, color: "#5b3256" },
+        { x: 148, w: 20, h: 140, color: "#1a3a5c" },
+        { x: 170, w: 14, h: 120, color: "#6b4226" },
+      ].map((book, i) => (
+        <mesh key={`br${i}`} position={[book.x, book.h / 2 - 7, -60]} castShadow>
+          <boxGeometry args={[book.w, book.h, 100]} />
+          <meshStandardMaterial color={book.color} roughness={0.7} />
+        </mesh>
+      ))}
+      {/* Small globe ornament on right */}
+      <mesh position={[195, 15, -20]} castShadow>
+        <sphereGeometry args={[16, 16, 16]} />
+        <meshStandardMaterial color="#6b8cae" roughness={0.4} metalness={0.1} />
+      </mesh>
+    </group>
+  );
+}
+
+// ---- Window Sill scene: model on a ledge with window frame ----
+
+function WindowSillRoom() {
+  return (
+    <group>
+      {/* Wall behind window */}
+      <mesh position={[0, 100, -200]} receiveShadow>
+        <planeGeometry args={[1500, 1200]} />
+        <meshStandardMaterial color="#e8e4de" roughness={0.95} />
+      </mesh>
+      {/* Window opening — lighter area representing sky/light */}
+      <mesh position={[0, 150, -198]}>
+        <planeGeometry args={[360, 400]} />
+        <meshStandardMaterial color="#b8d4e8" roughness={0.9} emissive="#8ab4d4" emissiveIntensity={0.15} />
+      </mesh>
+      {/* Window frame - top */}
+      <mesh position={[0, 352, -196]} castShadow>
+        <boxGeometry args={[380, 12, 8]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
+      </mesh>
+      {/* Window frame - bottom */}
+      <mesh position={[0, -48, -196]} castShadow>
+        <boxGeometry args={[380, 12, 8]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
+      </mesh>
+      {/* Window frame - left */}
+      <mesh position={[-186, 150, -196]} castShadow>
+        <boxGeometry args={[12, 412, 8]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
+      </mesh>
+      {/* Window frame - right */}
+      <mesh position={[186, 150, -196]} castShadow>
+        <boxGeometry args={[12, 412, 8]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
+      </mesh>
+      {/* Center mullion vertical */}
+      <mesh position={[0, 150, -196]}>
+        <boxGeometry args={[6, 400, 6]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
+      </mesh>
+      {/* Center mullion horizontal */}
+      <mesh position={[0, 150, -196]}>
+        <boxGeometry args={[360, 6, 6]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.4} />
+      </mesh>
+      {/* Window sill / ledge */}
+      <mesh position={[0, -10, -100]} receiveShadow castShadow>
+        <boxGeometry args={[440, 16, 200]} />
+        <meshStandardMaterial color="#f0ebe3" roughness={0.4} metalness={0.01} />
+      </mesh>
+      {/* Small succulent plant on sill */}
+      <group position={[170, 5, -80]}>
+        <mesh position={[0, 8, 0]} castShadow>
+          <cylinderGeometry args={[12, 10, 16, 8]} />
+          <meshStandardMaterial color="#d4956a" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 20, 0]} castShadow>
+          <sphereGeometry args={[10, 8, 8]} />
+          <meshStandardMaterial color="#5a8a5a" roughness={0.8} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 // ---- Shared lighting setup ----
 
-export function SceneLighting() {
+/** Lighting preset per scene type */
+export function SceneLighting({ sceneType = "desk" as SceneType }: { sceneType?: SceneType }) {
+  // Window sill gets brighter, cooler light simulating daylight
+  const isWindow = sceneType === "windowSill";
+  // Pedestal gets dramatic gallery lighting
+  const isPedestal = sceneType === "pedestal";
+
   return (
     <>
-      <ambientLight intensity={0.35} color="#fff5e6" />
+      <ambientLight
+        intensity={isWindow ? 0.5 : isPedestal ? 0.25 : 0.35}
+        color={isWindow ? "#e8f0ff" : "#fff5e6"}
+      />
       <directionalLight
-        position={[300, 500, 250]}
-        intensity={1.0}
-        color="#fff8ee"
+        position={isWindow ? [100, 400, -150] : [300, 500, 250]}
+        intensity={isWindow ? 1.3 : isPedestal ? 1.2 : 1.0}
+        color={isWindow ? "#fff" : "#fff8ee"}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -293,38 +522,76 @@ export function SceneLighting() {
       />
       <directionalLight
         position={[-250, 300, 100]}
-        intensity={0.3}
+        intensity={isPedestal ? 0.4 : 0.3}
         color="#e0e8ff"
       />
       <directionalLight
         position={[-100, 200, -300]}
         intensity={0.2}
-        color="#ffe8d0"
+        color={isWindow ? "#e0e8ff" : "#ffe8d0"}
       />
-      <pointLight position={[0, 400, 0]} intensity={0.15} color="#ffffff" />
+      <pointLight position={[0, 400, 0]} intensity={isPedestal ? 0.25 : 0.15} color="#ffffff" />
+      {/* Extra spot for pedestal drama */}
+      {isPedestal && (
+        <spotLight
+          position={[0, 500, 200]}
+          angle={0.3}
+          penumbra={0.8}
+          intensity={0.6}
+          color="#fff"
+          castShadow={false}
+        />
+      )}
     </>
   );
 }
 
+// ---- Scene environment configs ----
+
+const SCENE_CONFIGS: Record<SceneType, {
+  modelY: number;
+  modelZ: number;
+  contactShadowY: number;
+  contactShadowColor: string;
+}> = {
+  desk:       { modelY: BASE_THICKNESS_MM / 2 + 4, modelZ: 10,  contactShadowY: -0.5,  contactShadowColor: "#2a1f14" },
+  wallShelf:  { modelY: BASE_THICKNESS_MM / 2 - 3, modelZ: -50, contactShadowY: -3.5,   contactShadowColor: "#3d2b1f" },
+  pedestal:   { modelY: BASE_THICKNESS_MM / 2 + 6, modelZ: 0,   contactShadowY: 5.5,    contactShadowColor: "#444" },
+  bookshelf:  { modelY: BASE_THICKNESS_MM / 2 - 6, modelZ: -20, contactShadowY: -6.5,   contactShadowColor: "#2a1f14" },
+  windowSill: { modelY: BASE_THICKNESS_MM / 2 - 1, modelZ: -70, contactShadowY: -1.5,   contactShadowColor: "#333" },
+};
+
 // ---- Exported scene that can be reused in static angle renders ----
 
-export function CityScene({ sceneData }: { sceneData: SceneData }) {
+export function CityScene({ sceneData, sceneType = "desk" }: { sceneData: SceneData; sceneType?: SceneType }) {
+  const cfg = SCENE_CONFIGS[sceneType];
+
   return (
     <>
-      <SceneLighting />
-      <Room />
-      <Table />
-      <PlantPot />
-      <Books />
+      <SceneLighting sceneType={sceneType} />
+
+      {sceneType === "desk" && (
+        <>
+          <Room />
+          <Table />
+          <PlantPot />
+          <Books />
+        </>
+      )}
+      {sceneType === "wallShelf" && <WallShelfRoom />}
+      {sceneType === "pedestal" && <PedestalRoom />}
+      {sceneType === "bookshelf" && <BookshelfRoom />}
+      {sceneType === "windowSill" && <WindowSillRoom />}
+
       <ContactShadows
-        position={[0, -0.5, 0]}
-        opacity={0.5}
+        position={[0, cfg.contactShadowY, 0]}
+        opacity={sceneType === "pedestal" ? 0.35 : 0.5}
         scale={500}
         blur={2.5}
         far={20}
-        color="#2a1f14"
+        color={cfg.contactShadowColor}
       />
-      <group position={[0, BASE_THICKNESS_MM / 2 + 4, 10]}>
+      <group position={[0, cfg.modelY, cfg.modelZ]}>
         <BasePlate
           widthMm={sceneData.modelWidthMm}
           depthMm={sceneData.modelDepthMm}
@@ -352,11 +619,13 @@ function StaticCamera({ position, target }: { position: [number, number, number]
 /** Renders a static angle shot of the city model — no interactivity. */
 export function StaticAngleRender({
   sceneData,
+  sceneType = "desk",
   cameraPosition,
   cameraTarget = [0, 20, 0],
   style,
 }: {
   sceneData: SceneData;
+  sceneType?: SceneType;
   cameraPosition: [number, number, number];
   cameraTarget?: [number, number, number];
   style?: React.CSSProperties;
@@ -373,7 +642,7 @@ export function StaticAngleRender({
       frameloop="demand"
     >
       <StaticCamera position={cameraPosition} target={cameraTarget} />
-      <CityScene sceneData={sceneData} />
+      <CityScene sceneData={sceneData} sceneType={sceneType} />
     </Canvas>
   );
 }
@@ -406,11 +675,13 @@ function FrameCapture({ onCapture }: { onCapture: (url: string) => void }) {
  */
 export function CaptureRender({
   sceneData,
+  sceneType = "desk",
   cameraPosition,
   cameraTarget = [0, 20, 0] as [number, number, number],
   onCapture,
 }: {
   sceneData: SceneData;
+  sceneType?: SceneType;
   cameraPosition: [number, number, number];
   cameraTarget?: [number, number, number];
   onCapture: (dataUrl: string) => void;
@@ -432,7 +703,7 @@ export function CaptureRender({
       }}
     >
       <StaticCamera position={cameraPosition} target={cameraTarget} />
-      <CityScene sceneData={sceneData} />
+      <CityScene sceneData={sceneData} sceneType={sceneType} />
       <FrameCapture onCapture={onCapture} />
     </Canvas>
   );
@@ -442,10 +713,11 @@ export function CaptureRender({
 
 interface ViewerOverlayProps {
   sceneData: SceneData;
+  sceneType?: SceneType;
   onClose: () => void;
 }
 
-export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
+export function ViewerOverlay({ sceneData, sceneType = "desk", onClose }: ViewerOverlayProps) {
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -515,7 +787,7 @@ export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
           background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
         }}
       >
-        <CityScene sceneData={sceneData} />
+        <CityScene sceneData={sceneData} sceneType={sceneType} />
         <OrbitControls
           enablePan={false}
           enableZoom={true}
