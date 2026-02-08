@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Bounds, SceneData } from "./types";
 import {
   buildingHeightMm,
@@ -7,6 +7,12 @@ import {
   projectPolygon,
   projectRoad,
 } from "./geometryUtils";
+
+/** Maximum number of retry attempts before falling back to mock data */
+const MAX_RETRIES = 3;
+
+/** Base delay in ms — doubles each attempt (2s, 4s, 8s) */
+const BASE_DELAY_MS = 2000;
 
 /**
  * Build an Overpass QL query that fetches buildings and water features
@@ -215,179 +221,259 @@ function mockSceneData(bounds: Bounds): SceneData {
 }
 
 /**
+ * Perform a single Overpass API fetch. Throws on network/HTTP errors.
+ */
+async function fetchOverpass(query: string): Promise<OsmElement[]> {
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    body: `data=${encodeURIComponent(query)}`,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+  if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+  const json = await res.json();
+  return json.elements ?? [];
+}
+
+/**
+ * Parse raw OSM elements into SceneData geometry.
+ * Returns null when the response has no usable features.
+ */
+function parseElements(
+  elements: OsmElement[],
+  bounds: Bounds
+): SceneData | null {
+  const nodeMap = new Map<number, [number, number]>();
+  const ways = new Map<number, OsmWay>();
+  const relations: OsmRelation[] = [];
+
+  for (const el of elements) {
+    if (el.type === "node") {
+      nodeMap.set(el.id, [el.lat, el.lon]);
+    } else if (el.type === "way") {
+      ways.set(el.id, el);
+    } else if (el.type === "relation") {
+      relations.push(el);
+    }
+  }
+
+  const { scaleMMperM, modelWidthMm, modelDepthMm } = computeScale(bounds);
+  const buildings: SceneData["buildings"] = [];
+  const water: SceneData["water"] = [];
+  const roads: SceneData["roads"] = [];
+
+  const classify = (tags?: Record<string, string>) => {
+    if (!tags) return null;
+    if (tags["building"]) return "building";
+    if (
+      tags["natural"] === "water" ||
+      tags["waterway"] ||
+      tags["landuse"] === "reservoir"
+    )
+      return "water";
+    if (tags["highway"]) return "road";
+    return null;
+  };
+
+  for (const way of ways.values()) {
+    const kind = classify(way.tags);
+    if (!kind) continue;
+
+    const coords = resolveWayCoords(way.nodes, nodeMap);
+    if (!coords) continue;
+
+    if (kind === "road") {
+      if (coords.length < 2) continue;
+      const roadKind = classifyRoad(way.tags?.["highway"] ?? "");
+      const poly = projectRoad(
+        coords,
+        bounds,
+        scaleMMperM,
+        roadKind,
+        modelWidthMm,
+        modelDepthMm
+      );
+      if (poly.length < 3) continue;
+      roads.push({ polygon: poly, kind: roadKind });
+    } else {
+      if (coords.length < 3) continue;
+
+      if (kind === "water") {
+        const isClosed =
+          way.nodes.length > 2 &&
+          way.nodes[0] === way.nodes[way.nodes.length - 1];
+        if (!isClosed) continue;
+      }
+
+      const poly = projectPolygon(
+        coords,
+        bounds,
+        scaleMMperM,
+        modelWidthMm,
+        modelDepthMm
+      );
+      if (poly.length < 3) continue;
+
+      if (kind === "building") {
+        buildings.push({
+          polygon: poly,
+          heightMm: buildingHeightMm(way.tags ?? {}, scaleMMperM),
+        });
+      } else {
+        water.push({ polygon: poly });
+      }
+    }
+  }
+
+  for (const rel of relations) {
+    const kind = classify(rel.tags);
+    if (!kind) continue;
+    if (kind === "water" && rel.tags?.["type"] === "waterway") continue;
+
+    if (kind === "water") {
+      const outerWays: OsmWay[] = [];
+      for (const member of rel.members) {
+        if (member.type !== "way" || member.role !== "outer") continue;
+        const way = ways.get(member.ref);
+        if (way) outerWays.push(way);
+      }
+
+      const rings = assembleRings(outerWays, nodeMap);
+      for (const ring of rings) {
+        const poly = projectPolygon(
+          ring,
+          bounds,
+          scaleMMperM,
+          modelWidthMm,
+          modelDepthMm
+        );
+        if (poly.length < 3) continue;
+        water.push({ polygon: poly });
+      }
+    } else {
+      for (const member of rel.members) {
+        if (member.type !== "way" || member.role !== "outer") continue;
+        const way = ways.get(member.ref);
+        if (!way) continue;
+
+        const coords = resolveWayCoords(way.nodes, nodeMap);
+        if (!coords || coords.length < 3) continue;
+
+        const poly = projectPolygon(
+          coords,
+          bounds,
+          scaleMMperM,
+          modelWidthMm,
+          modelDepthMm
+        );
+        if (poly.length < 3) continue;
+
+        if (kind === "building") {
+          buildings.push({
+            polygon: poly,
+            heightMm: buildingHeightMm(
+              { ...rel.tags, ...way.tags },
+              scaleMMperM
+            ),
+          });
+        }
+      }
+    }
+  }
+
+  if (buildings.length === 0 && water.length === 0 && roads.length === 0) {
+    return null;
+  }
+  return { buildings, water, roads, modelWidthMm, modelDepthMm };
+}
+
+/**
  * Custom hook that fetches OSM data via Overpass and converts it
  * into model-space SceneData ready for 3D rendering.
+ *
+ * Includes automatic retry with exponential backoff (2s, 4s, 8s)
+ * and exposes retry state so the UI can show progress.
  */
 export function useOverpassData() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sceneData, setSceneData] = useState<SceneData | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+
+  // Allow cancellation when a new fetch is triggered while retrying
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async (bounds: Bounds) => {
+    // Cancel any in-flight retry chain
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setError(null);
     setSceneData(null);
+    setRetryAttempt(0);
 
-    try {
-      const query = overpassQuery(bounds);
-      const res = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: `data=${encodeURIComponent(query)}`,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
+    const query = overpassQuery(bounds);
 
-      if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (controller.signal.aborted) return;
 
-      const json = await res.json();
-      const elements: OsmElement[] = json.elements ?? [];
+      // Wait before retries (not before the first attempt)
+      if (attempt > 0) {
+        setRetryAttempt(attempt);
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
+        if (controller.signal.aborted) return;
+      }
 
-      // Build lookup maps
-      const nodeMap = new Map<number, [number, number]>();
-      const ways = new Map<number, OsmWay>();
-      const relations: OsmRelation[] = [];
+      try {
+        const elements = await fetchOverpass(query);
+        if (controller.signal.aborted) return;
 
-      for (const el of elements) {
-        if (el.type === "node") {
-          nodeMap.set(el.id, [el.lat, el.lon]);
-        } else if (el.type === "way") {
-          ways.set(el.id, el);
-        } else if (el.type === "relation") {
-          relations.push(el);
+        const parsed = parseElements(elements, bounds);
+        if (parsed) {
+          setSceneData(parsed);
+          setLoading(false);
+          return;
         }
-      }
 
-      const { scaleMMperM, modelWidthMm, modelDepthMm } =
-        computeScale(bounds);
-      const buildings: SceneData["buildings"] = [];
-      const water: SceneData["water"] = [];
-      const roads: SceneData["roads"] = [];
-
-      // Helper: classify an element as building, water, or road based on tags
-      const classify = (tags?: Record<string, string>) => {
-        if (!tags) return null;
-        if (tags["building"]) return "building";
-        if (
-          tags["natural"] === "water" ||
-          tags["waterway"] ||
-          tags["landuse"] === "reservoir"
-        )
-          return "water";
-        if (tags["highway"]) return "road";
-        return null;
-      };
-
-      // Process ways (most buildings/water/roads come as ways)
-      for (const way of ways.values()) {
-        const kind = classify(way.tags);
-        if (!kind) continue;
-
-        const coords = resolveWayCoords(way.nodes, nodeMap);
-        if (!coords) continue;
-
-        if (kind === "road") {
-          // Roads need at least 2 points (a line) not 3 (a polygon)
-          if (coords.length < 2) continue;
-          const roadKind = classifyRoad(way.tags?.["highway"] ?? "");
-          const poly = projectRoad(coords, bounds, scaleMMperM, roadKind, modelWidthMm, modelDepthMm);
-          if (poly.length < 3) continue;
-          roads.push({ polygon: poly, kind: roadKind });
-        } else {
-          if (coords.length < 3) continue;
-
-          // Water ways must be closed rings (first node == last node) to be
-          // valid area polygons. Open ways like river/stream centerlines
-          // would create huge bogus shapes if treated as filled polygons.
-          if (kind === "water") {
-            const isClosed =
-              way.nodes.length > 2 &&
-              way.nodes[0] === way.nodes[way.nodes.length - 1];
-            if (!isClosed) continue;
-          }
-
-          const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
-          if (poly.length < 3) continue;
-
-          if (kind === "building") {
-            buildings.push({
-              polygon: poly,
-              heightMm: buildingHeightMm(way.tags ?? {}, scaleMMperM),
-            });
-          } else {
-            water.push({ polygon: poly });
-          }
+        // Overpass returned no usable data — treat as soft failure,
+        // only retry if we haven't exhausted attempts
+        if (attempt === MAX_RETRIES) {
+          console.warn(
+            "Overpass returned no usable data after retries — using mock dataset"
+          );
+          setSceneData(mockSceneData(bounds));
+          setLoading(false);
+          return;
         }
-      }
+      } catch (err) {
+        if (controller.signal.aborted) return;
 
-      // Process relations (multipolygons)
-      for (const rel of relations) {
-        const kind = classify(rel.tags);
-        if (!kind) continue;
-
-        // type=waterway relations are route relations that group river
-        // centerline ways — NOT area polygons. Skip them entirely.
-        if (kind === "water" && rel.tags?.["type"] === "waterway") continue;
-
-        if (kind === "water") {
-          // Water multipolygon relations (rivers, lakes): the outer
-          // boundary is often split across many small open ways that
-          // chain together to form a closed ring. We must assemble them.
-          const outerWays: OsmWay[] = [];
-          for (const member of rel.members) {
-            if (member.type !== "way" || member.role !== "outer") continue;
-            const way = ways.get(member.ref);
-            if (way) outerWays.push(way);
-          }
-
-          const rings = assembleRings(outerWays, nodeMap);
-          for (const ring of rings) {
-            const poly = projectPolygon(ring, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
-            if (poly.length < 3) continue;
-            water.push({ polygon: poly });
-          }
-        } else {
-          // Buildings (and anything else): each outer member is typically
-          // a single closed way, process individually.
-          for (const member of rel.members) {
-            if (member.type !== "way" || member.role !== "outer") continue;
-            const way = ways.get(member.ref);
-            if (!way) continue;
-
-            const coords = resolveWayCoords(way.nodes, nodeMap);
-            if (!coords || coords.length < 3) continue;
-
-            const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
-            if (poly.length < 3) continue;
-
-            if (kind === "building") {
-              buildings.push({
-                polygon: poly,
-                heightMm: buildingHeightMm(
-                  { ...rel.tags, ...way.tags },
-                  scaleMMperM
-                ),
-              });
-            }
-          }
+        // On last attempt, give up and fall back to mock data
+        if (attempt === MAX_RETRIES) {
+          console.error(
+            `Overpass fetch failed after ${MAX_RETRIES + 1} attempts, using mock data:`,
+            err
+          );
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch OSM data"
+          );
+          setSceneData(mockSceneData(bounds));
+          setLoading(false);
+          return;
         }
+        // Otherwise loop will retry
       }
-
-      // If Overpass returned nothing useful, fall back to mock data
-      if (buildings.length === 0 && water.length === 0 && roads.length === 0) {
-        console.warn("Overpass returned no usable data — using mock dataset");
-        setSceneData(mockSceneData(bounds));
-      } else {
-        setSceneData({ buildings, water, roads, modelWidthMm, modelDepthMm });
-      }
-    } catch (err) {
-      console.error("Overpass fetch failed, using mock data:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch OSM data"
-      );
-      setSceneData(mockSceneData(bounds));
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  return { loading, error, sceneData, fetchData };
+  return {
+    loading,
+    error,
+    sceneData,
+    fetchData,
+    retryAttempt,
+    maxRetries: MAX_RETRIES,
+  };
 }

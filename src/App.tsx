@@ -3,10 +3,12 @@ import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
 import { ViewerOverlay } from "./ModelPreview";
 import { useOverpassData } from "./useOverpassData";
+import CityLoadingAnimation from "./CityLoadingAnimation";
 import type { Bounds } from "./types";
 
 export default function App() {
-  const { loading, error, sceneData, fetchData } = useOverpassData();
+  const { loading, error, sceneData, fetchData, retryAttempt, maxRetries } =
+    useOverpassData();
   const [locationName, setLocationName] = useState("");
   const [showViewer, setShowViewer] = useState(false);
   const productRef = useRef<HTMLDivElement>(null);
@@ -70,30 +72,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Loading indicator ── */}
+      {/* ── Loading animation ── */}
       {loading && (
-        <div
-          style={{
-            padding: "64px 24px",
-            textAlign: "center",
-            background: "#faf9f7",
-          }}
-        >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              border: "3px solid #ddd",
-              borderTopColor: "#3b82f6",
-              borderRadius: "50%",
-              margin: "0 auto",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
-          <div style={{ marginTop: 16, fontSize: 14, color: "#888" }}>
-            Building your city model...
-          </div>
-        </div>
+        <CityLoadingAnimation
+          retryAttempt={retryAttempt}
+          maxRetries={maxRetries}
+        />
       )}
 
       {/* ── Error notice ── */}
