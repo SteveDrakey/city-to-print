@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useMemo, useEffect } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import type { SceneData, Polygon, RoadData } from "./types";
@@ -154,7 +154,6 @@ function Table() {
   const legInset = 35;
 
   const legGeometry = useMemo(() => {
-    // Tapered leg shape
     const shape = new THREE.Shape();
     const hw = legTopW / 2;
     const hb = legBottomW / 2;
@@ -175,7 +174,6 @@ function Table() {
 
   return (
     <group position={[0, -(tableThick / 2), 0]}>
-      {/* Table top */}
       <mesh position={[0, 0, 0]} receiveShadow castShadow>
         <boxGeometry args={[tableW, tableThick, tableD]} />
         <meshStandardMaterial
@@ -184,12 +182,10 @@ function Table() {
           metalness={0.02}
         />
       </mesh>
-      {/* Subtle table edge bevel / trim */}
       <mesh position={[0, -(tableThick / 2 + 0.5), 0]}>
         <boxGeometry args={[tableW - 4, 1, tableD - 4]} />
         <meshStandardMaterial color="#4a3118" roughness={0.6} />
       </mesh>
-      {/* Four tapered legs */}
       {[
         { x: -(tableW / 2 - legInset), z: -(tableD / 2 - legInset) },
         { x: (tableW / 2 - legInset), z: -(tableD / 2 - legInset) },
@@ -208,23 +204,17 @@ function Table() {
   );
 }
 
-/**
- * A small decorative plant pot to add realism.
- */
 function PlantPot() {
   return (
     <group position={[160, 0, -90]}>
-      {/* Pot */}
       <mesh position={[0, 12, 0]} castShadow>
         <cylinderGeometry args={[14, 11, 24, 16]} />
         <meshStandardMaterial color="#c4956a" roughness={0.8} />
       </mesh>
-      {/* Soil */}
       <mesh position={[0, 24.5, 0]}>
         <cylinderGeometry args={[13, 13, 1, 16]} />
         <meshStandardMaterial color="#3d2b1f" roughness={0.95} />
       </mesh>
-      {/* Simple plant foliage (a few green spheres) */}
       {[
         [0, 42, 0],
         [-8, 36, 5],
@@ -241,9 +231,6 @@ function PlantPot() {
   );
 }
 
-/**
- * A small stack of books for realism.
- */
 function Books() {
   const books = [
     { w: 50, h: 6, d: 35, color: "#2c3e50", y: 3 },
@@ -263,13 +250,9 @@ function Books() {
   );
 }
 
-/**
- * Realistic room backdrop with warm-toned walls and hardwood floor.
- */
 function Room() {
   return (
     <group>
-      {/* Floor - hardwood */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -170, 0]}
@@ -279,13 +262,11 @@ function Room() {
         <meshStandardMaterial color="#c4a676" roughness={0.7} metalness={0.01} />
       </mesh>
 
-      {/* Back wall */}
       <mesh position={[0, 230, -420]} receiveShadow>
         <planeGeometry args={[1500, 900]} />
         <meshStandardMaterial color="#f0ebe3" roughness={0.95} />
       </mesh>
 
-      {/* Side wall (left) */}
       <mesh
         position={[-500, 230, 0]}
         rotation={[0, Math.PI / 2, 0]}
@@ -295,13 +276,11 @@ function Room() {
         <meshStandardMaterial color="#ede8e0" roughness={0.95} />
       </mesh>
 
-      {/* Baseboard - back wall */}
       <mesh position={[0, -155, -418]}>
         <boxGeometry args={[1500, 30, 4]} />
         <meshStandardMaterial color="#f5f2ed" roughness={0.6} />
       </mesh>
 
-      {/* Baseboard - left wall */}
       <mesh
         position={[-498, -155, 0]}
         rotation={[0, Math.PI / 2, 0]}
@@ -313,7 +292,261 @@ function Room() {
   );
 }
 
-// ---- Main preview component ----
+// ---- Shared lighting setup ----
+
+export function SceneLighting() {
+  return (
+    <>
+      <ambientLight intensity={0.35} color="#fff5e6" />
+      <directionalLight
+        position={[300, 500, 250]}
+        intensity={1.0}
+        color="#fff8ee"
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-400}
+        shadow-camera-right={400}
+        shadow-camera-top={400}
+        shadow-camera-bottom={-400}
+        shadow-camera-near={1}
+        shadow-camera-far={1500}
+        shadow-bias={-0.0005}
+      />
+      <directionalLight
+        position={[-250, 300, 100]}
+        intensity={0.3}
+        color="#e0e8ff"
+      />
+      <directionalLight
+        position={[-100, 200, -300]}
+        intensity={0.2}
+        color="#ffe8d0"
+      />
+      <pointLight position={[0, 400, 0]} intensity={0.15} color="#ffffff" />
+    </>
+  );
+}
+
+// ---- Exported scene that can be reused in static angle renders ----
+
+export function CityScene({ sceneData }: { sceneData: SceneData }) {
+  return (
+    <>
+      <SceneLighting />
+      <Room />
+      <Table />
+      <PlantPot />
+      <Books />
+      <ContactShadows
+        position={[0, -0.5, 0]}
+        opacity={0.5}
+        scale={500}
+        blur={2.5}
+        far={20}
+        color="#2a1f14"
+      />
+      <group position={[0, BASE_THICKNESS_MM / 2 + 4, 10]}>
+        <BasePlate
+          widthMm={sceneData.modelWidthMm}
+          depthMm={sceneData.modelDepthMm}
+        />
+        {sceneData.roads.map((r, i) => (
+          <Road key={`r-${i}`} polygon={r.polygon} kind={r.kind} />
+        ))}
+        {sceneData.buildings.map((b, i) => (
+          <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
+        ))}
+        {sceneData.water.map((w, i) => (
+          <Water key={`w-${i}`} polygon={w.polygon} />
+        ))}
+      </group>
+    </>
+  );
+}
+
+// ---- Static camera for angle shots (no orbit controls) ----
+
+function StaticCamera({ position, target }: { position: [number, number, number]; target: [number, number, number] }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    camera.position.set(...position);
+    camera.lookAt(new THREE.Vector3(...target));
+    camera.updateProjectionMatrix();
+  }, [camera, position, target]);
+  return null;
+}
+
+/** Renders a static angle shot of the city model — no interactivity. */
+export function StaticAngleRender({
+  sceneData,
+  cameraPosition,
+  cameraTarget = [0, 20, 0],
+  style,
+}: {
+  sceneData: SceneData;
+  cameraPosition: [number, number, number];
+  cameraTarget?: [number, number, number];
+  style?: React.CSSProperties;
+}) {
+  return (
+    <Canvas
+      camera={{ fov: 28, near: 1, far: 5000 }}
+      shadows
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1, preserveDrawingBuffer: true }}
+      style={{
+        background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
+        ...style,
+      }}
+      frameloop="demand"
+    >
+      <StaticCamera position={cameraPosition} target={cameraTarget} />
+      <CityScene sceneData={sceneData} />
+    </Canvas>
+  );
+}
+
+// ---- Fullscreen interactive viewer (overlay) ----
+
+interface ViewerOverlayProps {
+  sceneData: SceneData;
+  onClose: () => void;
+}
+
+export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "#000",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Close bar */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "12px 20px",
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
+        }}
+      >
+        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500 }}>
+          Interactive 3D View
+        </span>
+        <button
+          onClick={onClose}
+          style={{
+            background: "rgba(255,255,255,0.15)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            color: "#fff",
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            cursor: "pointer",
+            fontSize: 18,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      <Canvas
+        camera={{
+          position: [250, 180, 300],
+          fov: 28,
+          near: 1,
+          far: 5000,
+        }}
+        shadows
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        style={{
+          flex: 1,
+          background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
+        }}
+      >
+        <CityScene sceneData={sceneData} />
+        <OrbitControls
+          enablePan={false}
+          enableZoom={true}
+          minPolarAngle={Math.PI / 6}
+          maxPolarAngle={Math.PI / 2.2}
+          minDistance={200}
+          maxDistance={600}
+          target={[0, 20, 0]}
+          autoRotate
+          autoRotateSpeed={0.4}
+        />
+      </Canvas>
+
+      {/* Info badge */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 16,
+          left: 16,
+          background: "rgba(0,0,0,0.7)",
+          backdropFilter: "blur(8px)",
+          color: "#fff",
+          padding: "8px 16px",
+          borderRadius: 8,
+          fontSize: 12,
+          letterSpacing: 0.3,
+          zIndex: 10,
+        }}
+      >
+        <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
+        <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
+        {sceneData.buildings.length} buildings
+        <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
+        {sceneData.roads.length} roads
+        <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
+        {sceneData.water.length} water
+      </div>
+
+      {/* Drag hint */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 16,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(8px)",
+          color: "rgba(255,255,255,0.8)",
+          padding: "6px 12px",
+          borderRadius: 6,
+          fontSize: 11,
+          letterSpacing: 0.2,
+          zIndex: 10,
+        }}
+      >
+        {("ontouchstart" in window || navigator.maxTouchPoints > 0)
+          ? "Pinch to zoom, drag to rotate"
+          : "Scroll to zoom, drag to rotate"}
+      </div>
+    </div>
+  );
+}
+
+// ---- Original preview component (kept for loading/empty states) ----
 
 interface Props {
   sceneData: SceneData | null;
@@ -361,44 +594,7 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         style={{ background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)" }}
       >
-        {/* Lighting - product photography style */}
-        {/* Warm ambient fill */}
-        <ambientLight intensity={0.35} color="#fff5e6" />
-
-        {/* Key light - warm, directional, from upper right */}
-        <directionalLight
-          position={[300, 500, 250]}
-          intensity={1.0}
-          color="#fff8ee"
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-camera-left={-400}
-          shadow-camera-right={400}
-          shadow-camera-top={400}
-          shadow-camera-bottom={-400}
-          shadow-camera-near={1}
-          shadow-camera-far={1500}
-          shadow-bias={-0.0005}
-        />
-
-        {/* Fill light - cool, from left */}
-        <directionalLight
-          position={[-250, 300, 100]}
-          intensity={0.3}
-          color="#e0e8ff"
-        />
-
-        {/* Rim / back light for edge definition */}
-        <directionalLight
-          position={[-100, 200, -300]}
-          intensity={0.2}
-          color="#ffe8d0"
-        />
-
-        {/* Subtle top-down fill to reduce harsh shadows */}
-        <pointLight position={[0, 400, 0]} intensity={0.15} color="#ffffff" />
-
+        <CityScene sceneData={sceneData} />
         <OrbitControls
           enablePan={false}
           enableZoom={true}
@@ -410,48 +606,8 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
           autoRotate
           autoRotateSpeed={0.4}
         />
-
-        {/* Room environment */}
-        <Room />
-        <Table />
-
-        {/* Decorative elements */}
-        <PlantPot />
-        <Books />
-
-        {/* Contact shadow on the table for grounding */}
-        <ContactShadows
-          position={[0, -0.5, 0]}
-          opacity={0.5}
-          scale={500}
-          blur={2.5}
-          far={20}
-          color="#2a1f14"
-        />
-
-        {/* City model sitting on the table */}
-        <group position={[0, BASE_THICKNESS_MM / 2 + 4, 10]}>
-          <BasePlate
-            widthMm={sceneData.modelWidthMm}
-            depthMm={sceneData.modelDepthMm}
-          />
-
-          {/* Roads rendered first (under buildings) */}
-          {sceneData.roads.map((r, i) => (
-            <Road key={`r-${i}`} polygon={r.polygon} kind={r.kind} />
-          ))}
-
-          {sceneData.buildings.map((b, i) => (
-            <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
-          ))}
-
-          {sceneData.water.map((w, i) => (
-            <Water key={`w-${i}`} polygon={w.polygon} />
-          ))}
-        </group>
       </Canvas>
 
-      {/* Info badge - refined */}
       <div style={infoBadgeStyle}>
         <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
         <span style={dividerStyle}>|</span>
@@ -462,7 +618,6 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
         {sceneData.water.length} water
       </div>
 
-      {/* Drag hint */}
       <div style={dragHintStyle}>
         {("ontouchstart" in window || navigator.maxTouchPoints > 0)
           ? "Touch to rotate"
