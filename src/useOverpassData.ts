@@ -79,6 +79,71 @@ function resolveWayCoords(
 }
 
 /**
+ * Assemble multiple open way segments into closed rings by chaining
+ * them via shared endpoint node IDs.
+ *
+ * In OSM multipolygon relations, the outer boundary of a feature like
+ * a river is split across many small ways. Each individual way is open,
+ * but they connect end-to-end (sharing node IDs) to form a closed ring.
+ * This function reconstructs those rings.
+ */
+function assembleRings(
+  memberWays: OsmWay[],
+  nodeMap: Map<number, [number, number]>
+): [number, number][][] {
+  const rings: [number, number][][] = [];
+
+  // Work with node-ID sequences so matching is exact (not float comparison)
+  const remaining = memberWays.map((w) => [...w.nodes]);
+
+  while (remaining.length > 0) {
+    let chain = remaining.shift()!;
+    let changed = true;
+
+    // Keep extending the chain until it closes or we run out of matches
+    while (changed && chain[0] !== chain[chain.length - 1]) {
+      changed = false;
+      const tail = chain[chain.length - 1];
+
+      for (let i = 0; i < remaining.length; i++) {
+        const seg = remaining[i];
+        if (tail === seg[0]) {
+          // Append segment forward (skip duplicate junction node)
+          chain = chain.concat(seg.slice(1));
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        } else if (tail === seg[seg.length - 1]) {
+          // Append segment reversed
+          chain = chain.concat(seg.slice().reverse().slice(1));
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    // Resolve node IDs to coordinates
+    const coords: [number, number][] = [];
+    let valid = true;
+    for (const nid of chain) {
+      const c = nodeMap.get(nid);
+      if (!c) {
+        valid = false;
+        break;
+      }
+      coords.push(c);
+    }
+
+    if (valid && coords.length >= 3) {
+      rings.push(coords);
+    }
+  }
+
+  return rings;
+}
+
+/**
  * Generate a small procedural mock dataset when Overpass is
  * unavailable or returns nothing. This lets the 3D preview still
  * show something useful during development or outages.
@@ -253,42 +318,55 @@ export function useOverpassData() {
         }
       }
 
-      // Process relations (multipolygons) — use outer members only
+      // Process relations (multipolygons)
       for (const rel of relations) {
         const kind = classify(rel.tags);
         if (!kind) continue;
 
-        for (const member of rel.members) {
-          if (member.type !== "way" || member.role !== "outer") continue;
-          const way = ways.get(member.ref);
-          if (!way) continue;
+        // type=waterway relations are route relations that group river
+        // centerline ways — NOT area polygons. Skip them entirely.
+        if (kind === "water" && rel.tags?.["type"] === "waterway") continue;
 
-          const coords = resolveWayCoords(way.nodes, nodeMap);
-          if (!coords || coords.length < 3) continue;
-
-          // Same as for standalone ways: water relation members must be
-          // closed rings. Open linestrings (river/stream centerlines) would
-          // produce huge bogus blue shapes if filled as polygons.
-          if (kind === "water") {
-            const isClosed =
-              way.nodes.length > 2 &&
-              way.nodes[0] === way.nodes[way.nodes.length - 1];
-            if (!isClosed) continue;
+        if (kind === "water") {
+          // Water multipolygon relations (rivers, lakes): the outer
+          // boundary is often split across many small open ways that
+          // chain together to form a closed ring. We must assemble them.
+          const outerWays: OsmWay[] = [];
+          for (const member of rel.members) {
+            if (member.type !== "way" || member.role !== "outer") continue;
+            const way = ways.get(member.ref);
+            if (way) outerWays.push(way);
           }
 
-          const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
-          if (poly.length < 3) continue; // clipped away entirely
-
-          if (kind === "building") {
-            buildings.push({
-              polygon: poly,
-              heightMm: buildingHeightMm(
-                { ...rel.tags, ...way.tags },
-                scaleMMperM
-              ),
-            });
-          } else {
+          const rings = assembleRings(outerWays, nodeMap);
+          for (const ring of rings) {
+            const poly = projectPolygon(ring, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
+            if (poly.length < 3) continue;
             water.push({ polygon: poly });
+          }
+        } else {
+          // Buildings (and anything else): each outer member is typically
+          // a single closed way, process individually.
+          for (const member of rel.members) {
+            if (member.type !== "way" || member.role !== "outer") continue;
+            const way = ways.get(member.ref);
+            if (!way) continue;
+
+            const coords = resolveWayCoords(way.nodes, nodeMap);
+            if (!coords || coords.length < 3) continue;
+
+            const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
+            if (poly.length < 3) continue;
+
+            if (kind === "building") {
+              buildings.push({
+                polygon: poly,
+                heightMm: buildingHeightMm(
+                  { ...rel.tags, ...way.tags },
+                  scaleMMperM
+                ),
+              });
+            }
           }
         }
       }
