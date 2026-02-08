@@ -307,6 +307,47 @@ export function bufferLineToPolygon(
 }
 
 /**
+ * Compute the centroid (average of vertices) of a polygon.
+ */
+export function polygonCentroid(poly: Polygon): Point2D {
+  let cx = 0;
+  let cy = 0;
+  for (const [x, y] of poly) {
+    cx += x;
+    cy += y;
+  }
+  return [cx / poly.length, cy / poly.length];
+}
+
+/**
+ * Ray-casting point-in-polygon test.
+ * Returns true if the point (px, py) lies inside the polygon.
+ */
+export function pointInPolygon(px: number, py: number, poly: Polygon): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1];
+    const xj = poly[j][0], yj = poly[j][1];
+    if ((yi > py) !== (yj > py) &&
+        px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Check whether a polygon's centroid falls inside any of the given water polygons.
+ */
+export function isInsideWater(poly: Polygon, waterPolygons: Polygon[]): boolean {
+  const [cx, cy] = polygonCentroid(poly);
+  for (const water of waterPolygons) {
+    if (pointInPolygon(cx, cy, water)) return true;
+  }
+  return false;
+}
+
+/**
  * Project a road linestring (lat/lon) to model-space and buffer it
  * into a polygon strip, clipped to the base plate.
  */

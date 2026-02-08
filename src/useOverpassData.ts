@@ -4,6 +4,7 @@ import {
   buildingHeightMm,
   classifyRoad,
   computeScale,
+  isInsideWater,
   projectPolygon,
   projectRoad,
 } from "./geometryUtils";
@@ -272,12 +273,21 @@ export function useOverpassData() {
         }
       }
 
+      // Remove buildings and roads whose centroid falls inside a water polygon
+      const waterPolygons = water.map((w) => w.polygon);
+      const filteredBuildings = buildings.filter(
+        (b) => !isInsideWater(b.polygon, waterPolygons)
+      );
+      const filteredRoads = roads.filter(
+        (r) => !isInsideWater(r.polygon, waterPolygons)
+      );
+
       // If Overpass returned nothing useful, fall back to mock data
-      if (buildings.length === 0 && water.length === 0 && roads.length === 0) {
+      if (filteredBuildings.length === 0 && water.length === 0 && filteredRoads.length === 0) {
         console.warn("Overpass returned no usable data — using mock dataset");
         setSceneData(mockSceneData(bounds));
       } else {
-        setSceneData({ buildings, water, roads, modelWidthMm, modelDepthMm });
+        setSceneData({ buildings: filteredBuildings, water, roads: filteredRoads, modelWidthMm, modelDepthMm });
       }
     } catch (err) {
       console.error("Overpass fetch failed, using mock data:", err);
