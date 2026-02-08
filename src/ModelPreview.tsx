@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
+import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
-import type { SceneData, Polygon } from "./types";
+import type { SceneData, Polygon, RoadData } from "./types";
 import { BASE_THICKNESS_MM } from "./geometryUtils";
 
 // ---- Helpers to turn 2D polygon outlines into three.js geometry ----
@@ -28,11 +29,10 @@ function Building({
 }) {
   const geometry = useMemo(() => {
     const shape = polygonToShape(polygon);
-    const geo = new THREE.ExtrudeGeometry(shape, {
+    return new THREE.ExtrudeGeometry(shape, {
       depth: heightMm,
       bevelEnabled: false,
     });
-    return geo;
   }, [polygon, heightMm]);
 
   return (
@@ -40,8 +40,45 @@ function Building({
       geometry={geometry}
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, BASE_THICKNESS_MM / 2, 0]}
+      castShadow
     >
-      <meshStandardMaterial color="#9ca3af" flatShading />
+      <meshStandardMaterial
+        color="#b0b0b0"
+        roughness={0.65}
+        metalness={0.05}
+      />
+    </mesh>
+  );
+}
+
+function Road({
+  polygon,
+  kind,
+}: {
+  polygon: Polygon;
+  kind: RoadData["kind"];
+}) {
+  const depth = kind === "major" ? 0.35 : kind === "minor" ? 0.25 : 0.15;
+
+  const geometry = useMemo(() => {
+    const shape = polygonToShape(polygon);
+    return new THREE.ExtrudeGeometry(shape, {
+      depth,
+      bevelEnabled: false,
+    });
+  }, [polygon, depth]);
+
+  return (
+    <mesh
+      geometry={geometry}
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, BASE_THICKNESS_MM / 2 - 0.1, 0]}
+    >
+      <meshStandardMaterial
+        color="#6b7280"
+        roughness={0.85}
+        metalness={0}
+      />
     </mesh>
   );
 }
@@ -49,11 +86,10 @@ function Building({
 function Water({ polygon }: { polygon: Polygon }) {
   const geometry = useMemo(() => {
     const shape = polygonToShape(polygon);
-    const geo = new THREE.ExtrudeGeometry(shape, {
+    return new THREE.ExtrudeGeometry(shape, {
       depth: 0.5,
       bevelEnabled: false,
     });
-    return geo;
   }, [polygon]);
 
   return (
@@ -62,7 +98,11 @@ function Water({ polygon }: { polygon: Polygon }) {
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, BASE_THICKNESS_MM / 2 - 0.3, 0]}
     >
-      <meshStandardMaterial color="#3b82f6" flatShading />
+      <meshStandardMaterial
+        color="#60a5fa"
+        roughness={0.2}
+        metalness={0.1}
+      />
     </mesh>
   );
 }
@@ -74,76 +114,26 @@ function BasePlate({
   widthMm: number;
   depthMm: number;
 }) {
-  const frameWidth = 2;
+  const frameWidth = 3;
+  const frameHeight = BASE_THICKNESS_MM + 1.5;
 
   return (
     <group>
-      <mesh position={[0, 0, 0]}>
+      {/* Main base */}
+      <mesh position={[0, 0, 0]} receiveShadow castShadow>
         <boxGeometry args={[widthMm, BASE_THICKNESS_MM, depthMm]} />
-        <meshStandardMaterial color="#d4d4d4" />
+        <meshStandardMaterial color="#e5e5e5" roughness={0.4} metalness={0} />
       </mesh>
-      {/* Front */}
-      <mesh position={[0, 0, depthMm / 2 + frameWidth / 2]}>
-        <boxGeometry
-          args={[widthMm + frameWidth * 2, BASE_THICKNESS_MM + 0.5, frameWidth]}
-        />
-        <meshStandardMaterial color="#1a1a1a" />
-      </mesh>
-      {/* Back */}
-      <mesh position={[0, 0, -(depthMm / 2 + frameWidth / 2)]}>
-        <boxGeometry
-          args={[widthMm + frameWidth * 2, BASE_THICKNESS_MM + 0.5, frameWidth]}
-        />
-        <meshStandardMaterial color="#1a1a1a" />
-      </mesh>
-      {/* Left */}
-      <mesh position={[-(widthMm / 2 + frameWidth / 2), 0, 0]}>
-        <boxGeometry
-          args={[frameWidth, BASE_THICKNESS_MM + 0.5, depthMm + frameWidth * 2]}
-        />
-        <meshStandardMaterial color="#1a1a1a" />
-      </mesh>
-      {/* Right */}
-      <mesh position={[widthMm / 2 + frameWidth / 2, 0, 0]}>
-        <boxGeometry
-          args={[frameWidth, BASE_THICKNESS_MM + 0.5, depthMm + frameWidth * 2]}
-        />
-        <meshStandardMaterial color="#1a1a1a" />
-      </mesh>
-    </group>
-  );
-}
-
-/**
- * A wooden table surface and legs for the room mockup.
- * The table top is at y=0 in scene units, model sits on top.
- */
-function Table() {
-  const tableW = 500;
-  const tableD = 350;
-  const tableThick = 8;
-  const legH = 160;
-  const legW = 12;
-  const woodColor = "#8B6914";
-  const legInset = 30;
-
-  return (
-    <group position={[0, -(tableThick / 2), 0]}>
-      {/* Table top */}
-      <mesh position={[0, 0, 0]} receiveShadow>
-        <boxGeometry args={[tableW, tableThick, tableD]} />
-        <meshStandardMaterial color={woodColor} roughness={0.7} />
-      </mesh>
-      {/* Four legs */}
+      {/* Frame - 4 sides */}
       {[
-        [-(tableW / 2 - legInset), 0, -(tableD / 2 - legInset)],
-        [(tableW / 2 - legInset), 0, -(tableD / 2 - legInset)],
-        [-(tableW / 2 - legInset), 0, (tableD / 2 - legInset)],
-        [(tableW / 2 - legInset), 0, (tableD / 2 - legInset)],
-      ].map(([x, , z], i) => (
-        <mesh key={i} position={[x, -(tableThick / 2 + legH / 2), z]}>
-          <boxGeometry args={[legW, legH, legW]} />
-          <meshStandardMaterial color={woodColor} roughness={0.7} />
+        { pos: [0, 0, depthMm / 2 + frameWidth / 2] as const, size: [widthMm + frameWidth * 2, frameHeight, frameWidth] as const },
+        { pos: [0, 0, -(depthMm / 2 + frameWidth / 2)] as const, size: [widthMm + frameWidth * 2, frameHeight, frameWidth] as const },
+        { pos: [-(widthMm / 2 + frameWidth / 2), 0, 0] as const, size: [frameWidth, frameHeight, depthMm + frameWidth * 2] as const },
+        { pos: [widthMm / 2 + frameWidth / 2, 0, 0] as const, size: [frameWidth, frameHeight, depthMm + frameWidth * 2] as const },
+      ].map((side, i) => (
+        <mesh key={i} position={[side.pos[0], side.pos[1], side.pos[2]]} castShadow>
+          <boxGeometry args={[side.size[0], side.size[1], side.size[2]]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.3} metalness={0.1} />
         </mesh>
       ))}
     </group>
@@ -151,24 +141,173 @@ function Table() {
 }
 
 /**
- * Simple room backdrop: floor and back wall.
+ * Modern wooden table with rounded edges and tapered legs.
+ */
+function Table() {
+  const tableW = 480;
+  const tableD = 340;
+  const tableThick = 10;
+  const legH = 155;
+  const legTopW = 14;
+  const legBottomW = 8;
+  const woodColor = "#5c3d1e";
+  const legInset = 35;
+
+  const legGeometry = useMemo(() => {
+    // Tapered leg shape
+    const shape = new THREE.Shape();
+    const hw = legTopW / 2;
+    const hb = legBottomW / 2;
+    shape.moveTo(-hw, 0);
+    shape.lineTo(hw, 0);
+    shape.lineTo(hb, -legH);
+    shape.lineTo(-hb, -legH);
+    shape.closePath();
+
+    return new THREE.ExtrudeGeometry(shape, {
+      depth: legTopW,
+      bevelEnabled: true,
+      bevelThickness: 1,
+      bevelSize: 1,
+      bevelSegments: 2,
+    });
+  }, []);
+
+  return (
+    <group position={[0, -(tableThick / 2), 0]}>
+      {/* Table top */}
+      <mesh position={[0, 0, 0]} receiveShadow castShadow>
+        <boxGeometry args={[tableW, tableThick, tableD]} />
+        <meshStandardMaterial
+          color={woodColor}
+          roughness={0.55}
+          metalness={0.02}
+        />
+      </mesh>
+      {/* Subtle table edge bevel / trim */}
+      <mesh position={[0, -(tableThick / 2 + 0.5), 0]}>
+        <boxGeometry args={[tableW - 4, 1, tableD - 4]} />
+        <meshStandardMaterial color="#4a3118" roughness={0.6} />
+      </mesh>
+      {/* Four tapered legs */}
+      {[
+        { x: -(tableW / 2 - legInset), z: -(tableD / 2 - legInset) },
+        { x: (tableW / 2 - legInset), z: -(tableD / 2 - legInset) },
+        { x: -(tableW / 2 - legInset), z: (tableD / 2 - legInset) },
+        { x: (tableW / 2 - legInset), z: (tableD / 2 - legInset) },
+      ].map((pos, i) => (
+        <mesh
+          key={i}
+          geometry={legGeometry}
+          position={[pos.x, -(tableThick / 2), pos.z - legTopW / 2]}
+        >
+          <meshStandardMaterial color={woodColor} roughness={0.55} metalness={0.02} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * A small decorative plant pot to add realism.
+ */
+function PlantPot() {
+  return (
+    <group position={[160, 0, -90]}>
+      {/* Pot */}
+      <mesh position={[0, 12, 0]} castShadow>
+        <cylinderGeometry args={[14, 11, 24, 16]} />
+        <meshStandardMaterial color="#c4956a" roughness={0.8} />
+      </mesh>
+      {/* Soil */}
+      <mesh position={[0, 24.5, 0]}>
+        <cylinderGeometry args={[13, 13, 1, 16]} />
+        <meshStandardMaterial color="#3d2b1f" roughness={0.95} />
+      </mesh>
+      {/* Simple plant foliage (a few green spheres) */}
+      {[
+        [0, 42, 0],
+        [-8, 36, 5],
+        [6, 38, -4],
+        [3, 45, 6],
+        [-5, 44, -3],
+      ].map(([x, y, z], i) => (
+        <mesh key={i} position={[x, y, z]} castShadow>
+          <sphereGeometry args={[8 + Math.random() * 3, 8, 8]} />
+          <meshStandardMaterial color="#4a7c59" roughness={0.8} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * A small stack of books for realism.
+ */
+function Books() {
+  const books = [
+    { w: 50, h: 6, d: 35, color: "#2c3e50", y: 3 },
+    { w: 48, h: 5, d: 33, color: "#8b4513", y: 8.5 },
+    { w: 46, h: 7, d: 32, color: "#1a3a4a", y: 14.5 },
+  ];
+
+  return (
+    <group position={[-170, 0, -60]} rotation={[0, 0.15, 0]}>
+      {books.map((b, i) => (
+        <mesh key={i} position={[0, b.y, 0]} castShadow>
+          <boxGeometry args={[b.w, b.h, b.d]} />
+          <meshStandardMaterial color={b.color} roughness={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Realistic room backdrop with warm-toned walls and hardwood floor.
  */
 function Room() {
   return (
     <group>
-      {/* Floor */}
+      {/* Floor - hardwood */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -172, 0]}
+        position={[0, -170, 0]}
         receiveShadow
       >
-        <planeGeometry args={[1200, 1200]} />
-        <meshStandardMaterial color="#e8e0d4" roughness={0.9} />
+        <planeGeometry args={[1500, 1500]} />
+        <meshStandardMaterial color="#c4a676" roughness={0.7} metalness={0.01} />
       </mesh>
+
       {/* Back wall */}
-      <mesh position={[0, 200, -350]} receiveShadow>
-        <planeGeometry args={[1200, 800]} />
-        <meshStandardMaterial color="#f5f0eb" roughness={0.95} />
+      <mesh position={[0, 230, -420]} receiveShadow>
+        <planeGeometry args={[1500, 900]} />
+        <meshStandardMaterial color="#f0ebe3" roughness={0.95} />
+      </mesh>
+
+      {/* Side wall (left) */}
+      <mesh
+        position={[-500, 230, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[1200, 900]} />
+        <meshStandardMaterial color="#ede8e0" roughness={0.95} />
+      </mesh>
+
+      {/* Baseboard - back wall */}
+      <mesh position={[0, -155, -418]}>
+        <boxGeometry args={[1500, 30, 4]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.6} />
+      </mesh>
+
+      {/* Baseboard - left wall */}
+      <mesh
+        position={[-498, -155, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+      >
+        <boxGeometry args={[1200, 30, 4]} />
+        <meshStandardMaterial color="#f5f2ed" roughness={0.6} />
       </mesh>
     </group>
   );
@@ -186,7 +325,12 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
   if (loading) {
     return (
       <div style={overlayStyle}>
-        <span style={{ fontSize: 18 }}>Loading OSM data…</span>
+        <div style={{ textAlign: "center" }}>
+          <div style={spinnerStyle} />
+          <div style={{ marginTop: 16, fontSize: 14, color: "#666" }}>
+            Fetching map data...
+          </div>
+        </div>
       </div>
     );
   }
@@ -194,9 +338,12 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
   if (!sceneData) {
     return (
       <div style={overlayStyle}>
-        <span style={{ color: "#888", fontSize: 14 }}>
-          Select an area on the map to preview the 3D model.
-        </span>
+        <div style={{ textAlign: "center", maxWidth: 280 }}>
+          <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>&#9634;</div>
+          <div style={{ color: "#888", fontSize: 13, lineHeight: 1.5 }}>
+            Select an area on the map to preview your 3D city print.
+          </div>
+        </div>
       </div>
     );
   }
@@ -205,34 +352,94 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <Canvas
         camera={{
-          position: [220, 200, 320],
-          fov: 30,
+          position: [250, 180, 300],
+          fov: 28,
           near: 1,
           far: 5000,
         }}
         shadows
-        style={{ background: "linear-gradient(180deg, #d4cfc7 0%, #e8e0d4 100%)" }}
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        style={{ background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)" }}
       >
-        <ambientLight intensity={0.5} />
+        {/* Lighting - product photography style */}
+        {/* Warm ambient fill */}
+        <ambientLight intensity={0.35} color="#fff5e6" />
+
+        {/* Key light - warm, directional, from upper right */}
         <directionalLight
-          position={[200, 400, 200]}
-          intensity={0.9}
+          position={[300, 500, 250]}
+          intensity={1.0}
+          color="#fff8ee"
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-left={-400}
+          shadow-camera-right={400}
+          shadow-camera-top={400}
+          shadow-camera-bottom={-400}
+          shadow-camera-near={1}
+          shadow-camera-far={1500}
+          shadow-bias={-0.0005}
         />
-        <directionalLight position={[-100, 200, -150]} intensity={0.25} />
+
+        {/* Fill light - cool, from left */}
+        <directionalLight
+          position={[-250, 300, 100]}
+          intensity={0.3}
+          color="#e0e8ff"
+        />
+
+        {/* Rim / back light for edge definition */}
+        <directionalLight
+          position={[-100, 200, -300]}
+          intensity={0.2}
+          color="#ffe8d0"
+        />
+
+        {/* Subtle top-down fill to reduce harsh shadows */}
+        <pointLight position={[0, 400, 0]} intensity={0.15} color="#ffffff" />
+
+        <OrbitControls
+          enablePan={false}
+          enableZoom={true}
+          minPolarAngle={Math.PI / 6}
+          maxPolarAngle={Math.PI / 2.2}
+          minDistance={200}
+          maxDistance={600}
+          target={[0, 20, 0]}
+          autoRotate
+          autoRotateSpeed={0.4}
+        />
 
         {/* Room environment */}
         <Room />
         <Table />
 
+        {/* Decorative elements */}
+        <PlantPot />
+        <Books />
+
+        {/* Contact shadow on the table for grounding */}
+        <ContactShadows
+          position={[0, -0.5, 0]}
+          opacity={0.5}
+          scale={500}
+          blur={2.5}
+          far={20}
+          color="#2a1f14"
+        />
+
         {/* City model sitting on the table */}
-        <group position={[0, BASE_THICKNESS_MM / 2 + 4, 0]}>
+        <group position={[0, BASE_THICKNESS_MM / 2 + 4, 10]}>
           <BasePlate
             widthMm={sceneData.modelWidthMm}
             depthMm={sceneData.modelDepthMm}
           />
+
+          {/* Roads rendered first (under buildings) */}
+          {sceneData.roads.map((r, i) => (
+            <Road key={`r-${i}`} polygon={r.polygon} kind={r.kind} />
+          ))}
 
           {sceneData.buildings.map((b, i) => (
             <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
@@ -244,37 +451,24 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
         </group>
       </Canvas>
 
-      {/* Info badge */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 12,
-          left: 12,
-          background: "rgba(0,0,0,0.6)",
-          color: "#fff",
-          padding: "6px 12px",
-          borderRadius: 4,
-          fontSize: 12,
-        }}
-      >
-        200 mm print &middot;{" "}
-        {sceneData.buildings.length} buildings &middot;{" "}
-        {sceneData.water.length} water bodies
+      {/* Info badge - refined */}
+      <div style={infoBadgeStyle}>
+        <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
+        <span style={dividerStyle}>|</span>
+        {sceneData.buildings.length} buildings
+        <span style={dividerStyle}>|</span>
+        {sceneData.roads.length} roads
+        <span style={dividerStyle}>|</span>
+        {sceneData.water.length} water
+      </div>
+
+      {/* Drag hint */}
+      <div style={dragHintStyle}>
+        Drag to rotate
       </div>
 
       {error && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 12,
-            background: "rgba(239,68,68,0.85)",
-            color: "#fff",
-            padding: "6px 12px",
-            borderRadius: 4,
-            fontSize: 12,
-          }}
-        >
+        <div style={errorBadgeStyle}>
           Overpass error: {error} — showing mock data
         </div>
       )}
@@ -288,6 +482,59 @@ const overlayStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#f5f5f5",
+  background: "linear-gradient(165deg, #f5f0ea 0%, #ebe5db 100%)",
   color: "#333",
+};
+
+const spinnerStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  border: "3px solid #ddd",
+  borderTopColor: "#555",
+  borderRadius: "50%",
+  margin: "0 auto",
+  animation: "spin 0.8s linear infinite",
+};
+
+const infoBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: 16,
+  left: 16,
+  background: "rgba(0,0,0,0.7)",
+  backdropFilter: "blur(8px)",
+  color: "#fff",
+  padding: "8px 16px",
+  borderRadius: 8,
+  fontSize: 12,
+  letterSpacing: 0.3,
+};
+
+const dividerStyle: React.CSSProperties = {
+  margin: "0 6px",
+  opacity: 0.4,
+};
+
+const dragHintStyle: React.CSSProperties = {
+  position: "absolute",
+  bottom: 16,
+  right: 16,
+  background: "rgba(0,0,0,0.45)",
+  backdropFilter: "blur(8px)",
+  color: "rgba(255,255,255,0.8)",
+  padding: "6px 12px",
+  borderRadius: 6,
+  fontSize: 11,
+  letterSpacing: 0.2,
+};
+
+const errorBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 12,
+  left: 12,
+  background: "rgba(239,68,68,0.85)",
+  backdropFilter: "blur(8px)",
+  color: "#fff",
+  padding: "8px 14px",
+  borderRadius: 8,
+  fontSize: 12,
 };

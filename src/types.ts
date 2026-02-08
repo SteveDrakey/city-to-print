@@ -17,9 +17,17 @@ export interface WaterData {
   polygon: Polygon;
 }
 
+export interface RoadData {
+  /** Buffered polygon representing the road strip */
+  polygon: Polygon;
+  /** Road classification for width/styling: major, minor, path */
+  kind: "major" | "minor" | "path";
+}
+
 export interface SceneData {
   buildings: BuildingData[];
   water: WaterData[];
+  roads: RoadData[];
   /** Width of the model in mm (≤200) */
   modelWidthMm: number;
   /** Depth of the model in mm (≤200) */

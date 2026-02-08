@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import type { Bounds, SceneData } from "./types";
 import {
   buildingHeightMm,
+  classifyRoad,
   computeScale,
   projectPolygon,
+  projectRoad,
 } from "./geometryUtils";
 
 /**
@@ -27,6 +29,7 @@ function overpassQuery(bounds: Bounds): string {
   relation["natural"="water"](${bbox});
   relation["waterway"](${bbox});
   relation["landuse"="reservoir"](${bbox});
+  way["highway"](${bbox});
 );
 out body;
 >;
@@ -119,7 +122,31 @@ function mockSceneData(bounds: Bounds): SceneData {
     ] as [number, number][],
   });
 
-  return { buildings, water, modelWidthMm, modelDepthMm };
+  // Add some mock roads (a cross pattern)
+  const roads: SceneData["roads"] = [];
+  const roadHalfW = modelWidthMm * 0.015;
+  // Horizontal road
+  roads.push({
+    polygon: [
+      [-modelWidthMm / 2, -roadHalfW],
+      [modelWidthMm / 2, -roadHalfW],
+      [modelWidthMm / 2, roadHalfW],
+      [-modelWidthMm / 2, roadHalfW],
+    ] as [number, number][],
+    kind: "major",
+  });
+  // Vertical road
+  roads.push({
+    polygon: [
+      [-roadHalfW, -modelDepthMm / 2],
+      [roadHalfW, -modelDepthMm / 2],
+      [roadHalfW, modelDepthMm / 2],
+      [-roadHalfW, modelDepthMm / 2],
+    ] as [number, number][],
+    kind: "major",
+  });
+
+  return { buildings, water, roads, modelWidthMm, modelDepthMm };
 }
 
 /**
@@ -168,8 +195,9 @@ export function useOverpassData() {
         computeScale(bounds);
       const buildings: SceneData["buildings"] = [];
       const water: SceneData["water"] = [];
+      const roads: SceneData["roads"] = [];
 
-      // Helper: classify an element as building or water based on tags
+      // Helper: classify an element as building, water, or road based on tags
       const classify = (tags?: Record<string, string>) => {
         if (!tags) return null;
         if (tags["building"]) return "building";
@@ -179,27 +207,38 @@ export function useOverpassData() {
           tags["landuse"] === "reservoir"
         )
           return "water";
+        if (tags["highway"]) return "road";
         return null;
       };
 
-      // Process ways (most buildings/water come as ways)
+      // Process ways (most buildings/water/roads come as ways)
       for (const way of ways.values()) {
         const kind = classify(way.tags);
         if (!kind) continue;
 
         const coords = resolveWayCoords(way.nodes, nodeMap);
-        if (!coords || coords.length < 3) continue;
+        if (!coords) continue;
 
-        const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
-        if (poly.length < 3) continue; // clipped away entirely
-
-        if (kind === "building") {
-          buildings.push({
-            polygon: poly,
-            heightMm: buildingHeightMm(way.tags ?? {}, scaleMMperM),
-          });
+        if (kind === "road") {
+          // Roads need at least 2 points (a line) not 3 (a polygon)
+          if (coords.length < 2) continue;
+          const roadKind = classifyRoad(way.tags?.["highway"] ?? "");
+          const poly = projectRoad(coords, bounds, scaleMMperM, roadKind, modelWidthMm, modelDepthMm);
+          if (poly.length < 3) continue;
+          roads.push({ polygon: poly, kind: roadKind });
         } else {
-          water.push({ polygon: poly });
+          if (coords.length < 3) continue;
+          const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
+          if (poly.length < 3) continue;
+
+          if (kind === "building") {
+            buildings.push({
+              polygon: poly,
+              heightMm: buildingHeightMm(way.tags ?? {}, scaleMMperM),
+            });
+          } else {
+            water.push({ polygon: poly });
+          }
         }
       }
 
@@ -234,11 +273,11 @@ export function useOverpassData() {
       }
 
       // If Overpass returned nothing useful, fall back to mock data
-      if (buildings.length === 0 && water.length === 0) {
+      if (buildings.length === 0 && water.length === 0 && roads.length === 0) {
         console.warn("Overpass returned no usable data — using mock dataset");
         setSceneData(mockSceneData(bounds));
       } else {
-        setSceneData({ buildings, water, modelWidthMm, modelDepthMm });
+        setSceneData({ buildings, water, roads, modelWidthMm, modelDepthMm });
       }
     } catch (err) {
       console.error("Overpass fetch failed, using mock data:", err);
