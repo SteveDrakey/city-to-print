@@ -70,18 +70,108 @@ export function computeScale(bounds: Bounds): {
 }
 
 /**
+ * Sutherland-Hodgman polygon clipping against an axis-aligned rectangle.
+ * Clips the polygon to [minX, minY] – [maxX, maxY].
+ * Returns the clipped polygon, or an empty array if fully outside.
+ */
+function clipPolygon(
+  poly: Point2D[],
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number
+): Point2D[] {
+  if (poly.length === 0) return [];
+
+  type Edge = (p: Point2D) => { inside: boolean; intersect: (a: Point2D, b: Point2D) => Point2D };
+
+  const edges: Edge[] = [
+    // Left edge
+    (p) => ({
+      inside: p[0] >= minX,
+      intersect: (a, b) => {
+        const t = (minX - a[0]) / (b[0] - a[0]);
+        return [minX, a[1] + t * (b[1] - a[1])] as Point2D;
+      },
+    }),
+    // Right edge
+    (p) => ({
+      inside: p[0] <= maxX,
+      intersect: (a, b) => {
+        const t = (maxX - a[0]) / (b[0] - a[0]);
+        return [maxX, a[1] + t * (b[1] - a[1])] as Point2D;
+      },
+    }),
+    // Bottom edge
+    (p) => ({
+      inside: p[1] >= minY,
+      intersect: (a, b) => {
+        const t = (minY - a[1]) / (b[1] - a[1]);
+        return [a[0] + t * (b[0] - a[0]), minY] as Point2D;
+      },
+    }),
+    // Top edge
+    (p) => ({
+      inside: p[1] <= maxY,
+      intersect: (a, b) => {
+        const t = (maxY - a[1]) / (b[1] - a[1]);
+        return [a[0] + t * (b[0] - a[0]), maxY] as Point2D;
+      },
+    }),
+  ];
+
+  let output = [...poly];
+
+  for (const edge of edges) {
+    if (output.length === 0) return [];
+    const input = output;
+    output = [];
+
+    for (let i = 0; i < input.length; i++) {
+      const current = input[i];
+      const prev = input[(i + input.length - 1) % input.length];
+      const currEdge = edge(current);
+      const prevEdge = edge(prev);
+
+      if (currEdge.inside) {
+        if (!prevEdge.inside) {
+          output.push(currEdge.intersect(prev, current));
+        }
+        output.push(current);
+      } else if (prevEdge.inside) {
+        output.push(currEdge.intersect(prev, current));
+      }
+    }
+  }
+
+  return output;
+}
+
+/**
  * Convert an array of [lat, lon] pairs (an OSM way/polygon) to
- * model-space mm coordinates centred on the selection.
+ * model-space mm coordinates centred on the selection, clipped to
+ * the model boundary so nothing extends outside the base plate.
  */
 export function projectPolygon(
   coords: [number, number][],
   bounds: Bounds,
-  scaleMMperM: number
+  scaleMMperM: number,
+  modelWidthMm?: number,
+  modelDepthMm?: number
 ): Polygon {
-  return coords.map(([lat, lon]) => {
+  const projected = coords.map(([lat, lon]) => {
     const [xm, ym] = latLonToLocalMetres(lat, lon, bounds);
     return [xm * scaleMMperM, ym * scaleMMperM] as Point2D;
   });
+
+  // If model dimensions provided, clip to the base plate boundary
+  if (modelWidthMm != null && modelDepthMm != null) {
+    const halfW = modelWidthMm / 2;
+    const halfD = modelDepthMm / 2;
+    return clipPolygon(projected, -halfW, -halfD, halfW, halfD);
+  }
+
+  return projected;
 }
 
 /**

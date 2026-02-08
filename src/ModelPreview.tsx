@@ -1,16 +1,11 @@
 import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { SceneData, Polygon } from "./types";
-import { BASE_THICKNESS_MM, MODEL_SIZE_MM } from "./geometryUtils";
+import { BASE_THICKNESS_MM } from "./geometryUtils";
 
 // ---- Helpers to turn 2D polygon outlines into three.js geometry ----
 
-/**
- * Create a THREE.Shape from a polygon (array of [x, y] pairs).
- * The shape is used both for extruded buildings and flat water.
- */
 function polygonToShape(poly: Polygon): THREE.Shape {
   const shape = new THREE.Shape();
   for (let i = 0; i < poly.length; i++) {
@@ -33,7 +28,6 @@ function Building({
 }) {
   const geometry = useMemo(() => {
     const shape = polygonToShape(polygon);
-    // Extrude upward (along Z in shape space → we'll rotate later)
     const geo = new THREE.ExtrudeGeometry(shape, {
       depth: heightMm,
       bevelEnabled: false,
@@ -44,10 +38,6 @@ function Building({
   return (
     <mesh
       geometry={geometry}
-      // Place building so its base sits on the base plate surface
-      // ExtrudeGeometry extrudes along +Z in shape space.
-      // We rotate so Z becomes Y (up in the 3D scene),
-      // then shift up by half base thickness so it sits on the plate.
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, BASE_THICKNESS_MM / 2, 0]}
     >
@@ -59,7 +49,6 @@ function Building({
 function Water({ polygon }: { polygon: Polygon }) {
   const geometry = useMemo(() => {
     const shape = polygonToShape(polygon);
-    // Slightly recessed below the base plate top surface
     const geo = new THREE.ExtrudeGeometry(shape, {
       depth: 0.5,
       bevelEnabled: false,
@@ -71,7 +60,6 @@ function Water({ polygon }: { polygon: Polygon }) {
     <mesh
       geometry={geometry}
       rotation={[-Math.PI / 2, 0, 0]}
-      // Recess water slightly into the base plate
       position={[0, BASE_THICKNESS_MM / 2 - 0.3, 0]}
     >
       <meshStandardMaterial color="#3b82f6" flatShading />
@@ -79,10 +67,6 @@ function Water({ polygon }: { polygon: Polygon }) {
   );
 }
 
-/**
- * Base plate: a box centred at the origin with a thin black frame
- * around the perimeter.
- */
 function BasePlate({
   widthMm,
   depthMm,
@@ -90,17 +74,14 @@ function BasePlate({
   widthMm: number;
   depthMm: number;
 }) {
-  const frameWidth = 2; // mm
+  const frameWidth = 2;
 
   return (
     <group>
-      {/* Main plate (slightly inset from frame) */}
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[widthMm, BASE_THICKNESS_MM, depthMm]} />
         <meshStandardMaterial color="#d4d4d4" />
       </mesh>
-
-      {/* Frame — four thin strips around the perimeter */}
       {/* Front */}
       <mesh position={[0, 0, depthMm / 2 + frameWidth / 2]}>
         <boxGeometry
@@ -133,6 +114,66 @@ function BasePlate({
   );
 }
 
+/**
+ * A wooden table surface and legs for the room mockup.
+ * The table top is at y=0 in scene units, model sits on top.
+ */
+function Table() {
+  const tableW = 500;
+  const tableD = 350;
+  const tableThick = 8;
+  const legH = 160;
+  const legW = 12;
+  const woodColor = "#8B6914";
+  const legInset = 30;
+
+  return (
+    <group position={[0, -(tableThick / 2), 0]}>
+      {/* Table top */}
+      <mesh position={[0, 0, 0]} receiveShadow>
+        <boxGeometry args={[tableW, tableThick, tableD]} />
+        <meshStandardMaterial color={woodColor} roughness={0.7} />
+      </mesh>
+      {/* Four legs */}
+      {[
+        [-(tableW / 2 - legInset), 0, -(tableD / 2 - legInset)],
+        [(tableW / 2 - legInset), 0, -(tableD / 2 - legInset)],
+        [-(tableW / 2 - legInset), 0, (tableD / 2 - legInset)],
+        [(tableW / 2 - legInset), 0, (tableD / 2 - legInset)],
+      ].map(([x, , z], i) => (
+        <mesh key={i} position={[x, -(tableThick / 2 + legH / 2), z]}>
+          <boxGeometry args={[legW, legH, legW]} />
+          <meshStandardMaterial color={woodColor} roughness={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Simple room backdrop: floor and back wall.
+ */
+function Room() {
+  return (
+    <group>
+      {/* Floor */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -172, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[1200, 1200]} />
+        <meshStandardMaterial color="#e8e0d4" roughness={0.9} />
+      </mesh>
+      {/* Back wall */}
+      <mesh position={[0, 200, -350]} receiveShadow>
+        <planeGeometry args={[1200, 800]} />
+        <meshStandardMaterial color="#f5f0eb" roughness={0.95} />
+      </mesh>
+    </group>
+  );
+}
+
 // ---- Main preview component ----
 
 interface Props {
@@ -160,48 +201,47 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
     );
   }
 
-  /**
-   * Camera distance: place camera far enough to see the whole model.
-   * We use an isometric-ish perspective from the top-right-front.
-   */
-  const camDist = MODEL_SIZE_MM * 1.6;
-
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <Canvas
         camera={{
-          position: [camDist * 0.7, camDist * 0.6, camDist * 0.7],
-          fov: 35,
-          near: 0.1,
-          far: camDist * 10,
+          position: [220, 200, 320],
+          fov: 30,
+          near: 1,
+          far: 5000,
         }}
-        style={{ background: "#f5f5f5" }}
+        shadows
+        style={{ background: "linear-gradient(180deg, #d4cfc7 0%, #e8e0d4 100%)" }}
       >
-        {/* Neutral lighting for a model display */}
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[100, 200, 150]} intensity={0.8} />
-        <directionalLight position={[-80, 100, -100]} intensity={0.3} />
-
-        <BasePlate
-          widthMm={sceneData.modelWidthMm}
-          depthMm={sceneData.modelDepthMm}
+        <ambientLight intensity={0.5} />
+        <directionalLight
+          position={[200, 400, 200]}
+          intensity={0.9}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
         />
+        <directionalLight position={[-100, 200, -150]} intensity={0.25} />
 
-        {sceneData.buildings.map((b, i) => (
-          <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
-        ))}
+        {/* Room environment */}
+        <Room />
+        <Table />
 
-        {sceneData.water.map((w, i) => (
-          <Water key={`w-${i}`} polygon={w.polygon} />
-        ))}
+        {/* City model sitting on the table */}
+        <group position={[0, BASE_THICKNESS_MM / 2 + 4, 0]}>
+          <BasePlate
+            widthMm={sceneData.modelWidthMm}
+            depthMm={sceneData.modelDepthMm}
+          />
 
-        <OrbitControls
-          target={[0, BASE_THICKNESS_MM, 0]}
-          enablePan
-          enableZoom
-          enableRotate
-          maxPolarAngle={Math.PI / 2}
-        />
+          {sceneData.buildings.map((b, i) => (
+            <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
+          ))}
+
+          {sceneData.water.map((w, i) => (
+            <Water key={`w-${i}`} polygon={w.polygon} />
+          ))}
+        </group>
       </Canvas>
 
       {/* Info badge */}
@@ -210,14 +250,14 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
           position: "absolute",
           bottom: 12,
           left: 12,
-          background: "rgba(0,0,0,0.7)",
+          background: "rgba(0,0,0,0.6)",
           color: "#fff",
           padding: "6px 12px",
           borderRadius: 4,
           fontSize: 12,
         }}
       >
-        Fixed 200 mm footprint &middot;{" "}
+        200 mm print &middot;{" "}
         {sceneData.buildings.length} buildings &middot;{" "}
         {sceneData.water.length} water bodies
       </div>
