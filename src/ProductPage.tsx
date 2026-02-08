@@ -1,4 +1,5 @@
-import { StaticAngleRender } from "./ModelPreview";
+import { useState, useCallback } from "react";
+import { CaptureRender } from "./ModelPreview";
 import type { SceneData } from "./types";
 
 /** Camera angles for the product gallery shots. */
@@ -29,6 +30,16 @@ const ANGLES: {
   },
 ];
 
+/**
+ * Render jobs: hero first (three-quarter angle), then the 4 gallery angles.
+ * Only ONE Canvas exists at a time — each is captured to a JPEG image,
+ * then the Canvas is unmounted before the next one starts.
+ */
+const RENDER_JOBS = [
+  { label: "Hero", position: ANGLES[1].position, target: ANGLES[1].target },
+  ...ANGLES.map((a) => ({ label: a.label, position: a.position, target: a.target })),
+];
+
 interface Props {
   sceneData: SceneData;
   locationName: string;
@@ -38,50 +49,168 @@ interface Props {
 export default function ProductPage({ sceneData, locationName, onOpenViewer }: Props) {
   const displayName = locationName || "Your Selected Area";
 
+  // Sequential render-to-image state
+  const [images, setImages] = useState<string[]>([]);
+  const [readyForNext, setReadyForNext] = useState(true);
+
+  const currentIndex = images.length;
+  const totalJobs = RENDER_JOBS.length;
+  const isRendering = currentIndex < totalJobs;
+  const shouldRender = isRendering && readyForNext;
+  const currentJob = shouldRender ? RENDER_JOBS[currentIndex] : null;
+
+  const handleCapture = useCallback((dataUrl: string) => {
+    setReadyForNext(false);
+    setImages((prev) => [...prev, dataUrl]);
+    // Small delay to let previous WebGL context dispose before next mount
+    setTimeout(() => setReadyForNext(true), 150);
+  }, []);
+
+  const heroImage = images[0] || null;
+  const galleryImages = images.slice(1);
+
   return (
     <div style={{ background: "#faf9f7" }}>
+      {/* Off-screen render Canvas — only ONE exists at any time */}
+      {currentJob && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            width: 800,
+            height: 600,
+            opacity: 0.001,
+            pointerEvents: "none",
+            zIndex: -1,
+          }}
+        >
+          <CaptureRender
+            sceneData={sceneData}
+            cameraPosition={currentJob.position}
+            cameraTarget={currentJob.target}
+            onCapture={handleCapture}
+          />
+        </div>
+      )}
+
+      {/* ── Render progress bar ── */}
+      {isRendering && (
+        <div
+          style={{
+            padding: "14px 24px",
+            textAlign: "center",
+            background: "linear-gradient(180deg, #0f1729 0%, #1a2744 100%)",
+            borderBottom: "1px solid #2a3f6a",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#e2e8f0",
+              marginBottom: 10,
+              letterSpacing: 0.3,
+            }}
+          >
+            Preparing views... {currentIndex + 1} of {totalJobs}
+          </div>
+          <div
+            style={{
+              height: 4,
+              background: "rgba(255,255,255,0.1)",
+              borderRadius: 2,
+              maxWidth: 300,
+              margin: "0 auto",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${((currentIndex + 1) / totalJobs) * 100}%`,
+                background: "#3b82f6",
+                borderRadius: 2,
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Hero Section ── */}
       <div
         style={{
           position: "relative",
           width: "100%",
-          cursor: "pointer",
+          cursor: heroImage ? "pointer" : "default",
         }}
-        onClick={onOpenViewer}
+        onClick={heroImage ? onOpenViewer : undefined}
       >
-        <div style={{ width: "100%", aspectRatio: "16 / 10" }}>
-          <StaticAngleRender
-            sceneData={sceneData}
-            cameraPosition={ANGLES[1].position}
-            cameraTarget={ANGLES[1].target}
-            style={{ width: "100%", height: "100%", display: "block" }}
-          />
-        </div>
-        {/* Tap-to-view overlay hint */}
         <div
           style={{
-            position: "absolute",
-            bottom: 20,
-            right: 20,
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(8px)",
-            color: "#fff",
-            padding: "10px 18px",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 500,
-            letterSpacing: 0.3,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
+            width: "100%",
+            aspectRatio: "16 / 10",
+            background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-          Tap to view in 3D
+          {heroImage ? (
+            <img
+              src={heroImage}
+              alt={`${displayName} - hero view`}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div style={{ textAlign: "center", color: "#999" }}>
+                <div style={spinnerSmallStyle} />
+                <div style={{ marginTop: 8, fontSize: 13 }}>
+                  Rendering hero view...
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+        {/* Tap-to-view overlay hint */}
+        {heroImage && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 20,
+              right: 20,
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(8px)",
+              color: "#fff",
+              padding: "10px 18px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: 0.3,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            Tap to view in 3D
+          </div>
+        )}
       </div>
 
       {/* ── Title + Intro ── */}
@@ -182,7 +311,7 @@ export default function ProductPage({ sceneData, locationName, onOpenViewer }: P
         </div>
       </div>
 
-      {/* ── Gallery: multi-angle views ── */}
+      {/* ── Gallery: multi-angle views (rendered as images, not live Canvases) ── */}
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 56px" }}>
         <p
           style={{
@@ -207,22 +336,47 @@ export default function ProductPage({ sceneData, locationName, onOpenViewer }: P
           {ANGLES.map((angle, i) => (
             <div
               key={i}
-              onClick={onOpenViewer}
+              onClick={galleryImages[i] ? onOpenViewer : undefined}
               style={{
                 borderRadius: 12,
                 overflow: "hidden",
-                cursor: "pointer",
+                cursor: galleryImages[i] ? "pointer" : "default",
                 position: "relative",
                 border: "1px solid #e8e5e0",
               }}
             >
-              <div style={{ aspectRatio: "4 / 3" }}>
-                <StaticAngleRender
-                  sceneData={sceneData}
-                  cameraPosition={angle.position}
-                  cameraTarget={angle.target}
-                  style={{ width: "100%", height: "100%", display: "block", pointerEvents: "none" }}
-                />
+              <div
+                style={{
+                  aspectRatio: "4 / 3",
+                  background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
+                }}
+              >
+                {galleryImages[i] ? (
+                  <img
+                    src={galleryImages[i]}
+                    alt={angle.label}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div style={{ textAlign: "center", color: "#b0a89e" }}>
+                      <div style={spinnerSmallStyle} />
+                    </div>
+                  </div>
+                )}
               </div>
               <div
                 style={{
@@ -370,6 +524,23 @@ export default function ProductPage({ sceneData, locationName, onOpenViewer }: P
           Checkout coming soon
         </p>
       </div>
+
+      {/* Spinner keyframe (shared) */}
+      <style>{`
+        @keyframes spinSmall {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
+
+const spinnerSmallStyle: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  border: "2.5px solid #ddd",
+  borderTopColor: "#999",
+  borderRadius: "50%",
+  margin: "0 auto",
+  animation: "spinSmall 0.8s linear infinite",
+};

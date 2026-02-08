@@ -1,5 +1,5 @@
-import { useMemo, useEffect } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { useMemo, useEffect, useRef } from "react";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import type { SceneData, Polygon, RoadData } from "./types";
@@ -402,6 +402,66 @@ export function StaticAngleRender({
     >
       <StaticCamera position={cameraPosition} target={cameraTarget} />
       <CityScene sceneData={sceneData} />
+    </Canvas>
+  );
+}
+
+// ---- Render-to-image capture (one Canvas at a time, memory-friendly) ----
+
+/** Waits a few frames for shadows/effects to settle, then captures the canvas. */
+function FrameCapture({ onCapture }: { onCapture: (url: string) => void }) {
+  const { gl } = useThree();
+  const captured = useRef(false);
+  const frameCount = useRef(0);
+
+  useFrame(() => {
+    frameCount.current++;
+    // Wait 3 frames so shadows + contact shadows fully render
+    if (frameCount.current >= 3 && !captured.current) {
+      captured.current = true;
+      const url = gl.domElement.toDataURL("image/jpeg", 0.92);
+      setTimeout(() => onCapture(url), 0);
+    }
+  });
+
+  return null;
+}
+
+/**
+ * Renders a single angle shot into a Canvas, captures it as an image,
+ * then calls onCapture with the data URL. Designed to be mounted one
+ * at a time so only one WebGL context exists at any moment.
+ */
+export function CaptureRender({
+  sceneData,
+  cameraPosition,
+  cameraTarget = [0, 20, 0] as [number, number, number],
+  onCapture,
+}: {
+  sceneData: SceneData;
+  cameraPosition: [number, number, number];
+  cameraTarget?: [number, number, number];
+  onCapture: (dataUrl: string) => void;
+}) {
+  return (
+    <Canvas
+      camera={{ fov: 28, near: 1, far: 5000 }}
+      shadows
+      gl={{
+        antialias: true,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.1,
+        preserveDrawingBuffer: true,
+      }}
+      style={{
+        width: "100%",
+        height: "100%",
+        background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
+      }}
+    >
+      <StaticCamera position={cameraPosition} target={cameraTarget} />
+      <CityScene sceneData={sceneData} />
+      <FrameCapture onCapture={onCapture} />
     </Canvas>
   );
 }

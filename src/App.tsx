@@ -12,6 +12,7 @@ export default function App() {
   const [locationName, setLocationName] = useState("");
   const [showViewer, setShowViewer] = useState(false);
   const productRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef<HTMLDivElement>(null);
 
   const fontFamily =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
@@ -23,6 +24,13 @@ export default function App() {
     },
     [fetchData]
   );
+
+  // Auto-scroll to loading animation as soon as generation starts
+  useEffect(() => {
+    if (loading && loadingRef.current) {
+      loadingRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [loading]);
 
   // Auto-scroll to product page when scene data arrives
   useEffect(() => {
@@ -68,16 +76,18 @@ export default function App() {
 
         {/* Map */}
         <div style={{ flex: 1, minHeight: 0 }}>
-          <MapSelector onBoundsSelected={handleBoundsSelected} />
+          <MapSelector onBoundsSelected={handleBoundsSelected} loading={loading} />
         </div>
       </div>
 
       {/* ── Loading animation ── */}
       {loading && (
-        <CityLoadingAnimation
-          retryAttempt={retryAttempt}
-          maxRetries={maxRetries}
-        />
+        <div ref={loadingRef}>
+          <CityLoadingAnimation
+            retryAttempt={retryAttempt}
+            maxRetries={maxRetries}
+          />
+        </div>
       )}
 
       {/* ── Error notice ── */}

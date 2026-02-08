@@ -15,6 +15,8 @@ interface Props {
   onBoundsSelected: (bounds: Bounds, locationName?: string) => void;
   /** When controlled by a tab layout, signals whether this pane is visible. */
   visible?: boolean;
+  /** True while data is being fetched — disables generate button. */
+  loading?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * to frame the area they want, then taps "Generate Preview" to capture
  * the bounds. Works naturally on both touch and mouse devices.
  */
-export default function MapSelector({ onBoundsSelected, visible }: Props) {
+export default function MapSelector({ onBoundsSelected, visible, loading }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -450,20 +452,23 @@ export default function MapSelector({ onBoundsSelected, visible }: Props) {
         </span>
         <button
           onClick={handleGenerate}
+          disabled={loading}
           style={{
             padding: "12px 24px",
-            background: "#3b82f6",
+            background: loading ? "#6b7280" : "#3b82f6",
             color: "#fff",
             border: "none",
             borderRadius: 6,
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
             fontSize: 15,
             fontWeight: 600,
             whiteSpace: "nowrap",
             minHeight: 48,
+            opacity: loading ? 0.8 : 1,
+            transition: "background 0.2s, opacity 0.2s",
           }}
         >
-          Generate Preview
+          {loading ? "Generating..." : "Generate Preview"}
         </button>
       </div>
     </div>
