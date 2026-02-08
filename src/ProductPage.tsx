@@ -1,148 +1,63 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { CaptureRender, SCENE_CONFIGS } from "./ModelPreview";
-import type { SceneData, SceneType, SceneOption } from "./types";
+import { useState, useCallback } from "react";
+import { CaptureRender } from "./ModelPreview";
+import type { SceneData } from "./types";
+
+/** Camera angles for the product gallery shots. */
+const ANGLES: {
+  label: string;
+  position: [number, number, number];
+  target: [number, number, number];
+}[] = [
+  {
+    label: "Front view",
+    position: [0, 120, 380],
+    target: [0, 20, 0],
+  },
+  {
+    label: "Three-quarter view",
+    position: [250, 180, 300],
+    target: [0, 20, 0],
+  },
+  {
+    label: "Side view",
+    position: [380, 100, 0],
+    target: [0, 20, 0],
+  },
+  {
+    label: "Top-down view",
+    position: [0, 400, 40],
+    target: [0, 0, 0],
+  },
+];
 
 /**
- * Base camera offsets (relative to the scene's camera target).
- * Position = target + posOffset.  Target for all shots = scene camera target.
+ * Render jobs: hero first (three-quarter angle), then the 4 gallery angles.
+ * Only ONE Canvas exists at a time — each is captured to a JPEG image,
+ * then the Canvas is unmounted before the next one starts.
  */
-const BASE_ANGLES: {
-  label: string;
-  posOffset: readonly [number, number, number];
-}[] = [
-  { label: "Front view",        posOffset: [0, 100, 380] },
-  { label: "Three-quarter view", posOffset: [250, 160, 300] },
-  { label: "Side view",         posOffset: [380, 80, 0] },
-  { label: "Top-down view",     posOffset: [0, 380, 40] },
+const RENDER_JOBS = [
+  { label: "Hero", position: ANGLES[1].position, target: ANGLES[1].target },
+  ...ANGLES.map((a) => ({ label: a.label, position: a.position, target: a.target })),
 ];
-
-/** Compute absolute camera positions/targets for a given scene type. */
-function getAnglesForScene(sceneType: SceneType) {
-  const t = SCENE_CONFIGS[sceneType].cameraTarget;
-  return BASE_ANGLES.map((a) => ({
-    label: a.label,
-    position: [
-      t[0] + a.posOffset[0],
-      t[1] + a.posOffset[1],
-      t[2] + a.posOffset[2],
-    ] as [number, number, number],
-    target: [...t] as [number, number, number],
-  }));
-}
-
-/** Build render jobs (hero + gallery) for a given scene type. */
-function getRenderJobs(sceneType: SceneType) {
-  const angles = getAnglesForScene(sceneType);
-  return [
-    { label: "Hero", position: angles[1].position, target: angles[1].target },
-    ...angles.map((a) => ({ label: a.label, position: a.position, target: a.target })),
-  ];
-}
-
-const SCENE_OPTIONS: SceneOption[] = [
-  { id: "desk",       label: "Desk",         description: "Wooden desk with books & plant" },
-  { id: "wallShelf",  label: "Wall Shelf",    description: "Floating shelf in a living room" },
-  { id: "pedestal",   label: "Gallery",       description: "Museum-style display pedestal" },
-  { id: "bookshelf",  label: "Bookshelf",     description: "Nestled between books on a shelf" },
-  { id: "windowSill", label: "Window Sill",   description: "Bathed in natural window light" },
-];
-
-/** SVG icons for each scene (small, inline) */
-function SceneIcon({ sceneType, size = 24 }: { sceneType: SceneType; size?: number }) {
-  const s = size;
-  const stroke = "currentColor";
-  const sw = 1.5;
-  const common = { width: s, height: s, viewBox: "0 0 24 24", fill: "none", stroke, strokeWidth: sw, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-
-  switch (sceneType) {
-    case "desk":
-      return (
-        <svg {...common}>
-          <rect x="3" y="10" width="18" height="2" rx="0.5" />
-          <line x1="5" y1="12" x2="5" y2="20" />
-          <line x1="19" y1="12" x2="19" y2="20" />
-          <rect x="8" y="5" width="8" height="5" rx="0.5" />
-        </svg>
-      );
-    case "wallShelf":
-      return (
-        <svg {...common}>
-          <line x1="2" y1="14" x2="22" y2="14" />
-          <line x1="5" y1="14" x2="5" y2="18" />
-          <line x1="19" y1="14" x2="19" y2="18" />
-          <rect x="8" y="9" width="8" height="5" rx="0.5" />
-          <rect x="16" y="4" width="5" height="7" rx="0.5" />
-        </svg>
-      );
-    case "pedestal":
-      return (
-        <svg {...common}>
-          <rect x="7" y="8" width="10" height="14" rx="0.5" />
-          <rect x="5" y="7" width="14" height="2" rx="0.5" />
-          <rect x="9" y="3" width="6" height="4" rx="0.5" />
-        </svg>
-      );
-    case "bookshelf":
-      return (
-        <svg {...common}>
-          <line x1="2" y1="4" x2="22" y2="4" />
-          <line x1="2" y1="20" x2="22" y2="20" />
-          <line x1="2" y1="4" x2="2" y2="20" />
-          <line x1="22" y1="4" x2="22" y2="20" />
-          <rect x="4" y="6" width="3" height="12" rx="0.3" />
-          <rect x="7.5" y="7" width="2.5" height="11" rx="0.3" />
-          <rect x="14" y="6" width="3" height="12" rx="0.3" />
-          <rect x="17.5" y="7.5" width="2.5" height="10.5" rx="0.3" />
-        </svg>
-      );
-    case "windowSill":
-      return (
-        <svg {...common}>
-          <rect x="3" y="2" width="18" height="16" rx="0.5" />
-          <line x1="12" y1="2" x2="12" y2="18" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-          <line x1="2" y1="18" x2="22" y2="18" />
-          <line x1="1" y1="20" x2="23" y2="20" />
-        </svg>
-      );
-  }
-}
 
 interface Props {
   sceneData: SceneData;
   locationName: string;
-  sceneType: SceneType;
-  onSceneChange: (scene: SceneType) => void;
   onOpenViewer: () => void;
 }
 
-export default function ProductPage({ sceneData, locationName, sceneType, onSceneChange, onOpenViewer }: Props) {
+export default function ProductPage({ sceneData, locationName, onOpenViewer }: Props) {
   const displayName = locationName || "Your Selected Area";
-
-  // Compute per-scene camera angles and render jobs
-  const angles = useMemo(() => getAnglesForScene(sceneType), [sceneType]);
-  const renderJobs = useMemo(() => getRenderJobs(sceneType), [sceneType]);
 
   // Sequential render-to-image state
   const [images, setImages] = useState<string[]>([]);
   const [readyForNext, setReadyForNext] = useState(true);
-  // Track which sceneType the current images were rendered for
-  const [renderedScene, setRenderedScene] = useState<SceneType>(sceneType);
-
-  // Re-render all images when sceneType changes
-  useEffect(() => {
-    if (sceneType !== renderedScene) {
-      setImages([]);
-      setReadyForNext(true);
-      setRenderedScene(sceneType);
-    }
-  }, [sceneType, renderedScene]);
 
   const currentIndex = images.length;
-  const totalJobs = renderJobs.length;
+  const totalJobs = RENDER_JOBS.length;
   const isRendering = currentIndex < totalJobs;
   const shouldRender = isRendering && readyForNext;
-  const currentJob = shouldRender ? renderJobs[currentIndex] : null;
+  const currentJob = shouldRender ? RENDER_JOBS[currentIndex] : null;
 
   const handleCapture = useCallback((dataUrl: string) => {
     setReadyForNext(false);
@@ -172,7 +87,6 @@ export default function ProductPage({ sceneData, locationName, sceneType, onScen
         >
           <CaptureRender
             sceneData={sceneData}
-            sceneType={sceneType}
             cameraPosition={currentJob.position}
             cameraTarget={currentJob.target}
             onCapture={handleCapture}
@@ -299,82 +213,6 @@ export default function ProductPage({ sceneData, locationName, sceneType, onScen
         )}
       </div>
 
-      {/* ── Scene Selector ── */}
-      <div
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          padding: "28px 16px 0",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: 1.5,
-            textTransform: "uppercase",
-            color: "#9ca3af",
-            marginBottom: 12,
-            textAlign: "center",
-          }}
-        >
-          Display scene
-        </p>
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            justifyContent: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          {SCENE_OPTIONS.map((opt) => {
-            const isActive = sceneType === opt.id;
-            return (
-              <button
-                key={opt.id}
-                onClick={() => onSceneChange(opt.id)}
-                disabled={isRendering && sceneType !== opt.id}
-                title={opt.description}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "10px 16px",
-                  border: isActive ? "2px solid #3b82f6" : "2px solid #e5e5e5",
-                  borderRadius: 10,
-                  background: isActive ? "#eff6ff" : "#fff",
-                  cursor: isRendering && !isActive ? "not-allowed" : "pointer",
-                  opacity: isRendering && !isActive ? 0.5 : 1,
-                  color: isActive ? "#3b82f6" : "#666",
-                  fontSize: 12,
-                  fontWeight: isActive ? 600 : 500,
-                  transition: "all 0.15s ease",
-                  minWidth: 80,
-                  fontFamily: "inherit",
-                }}
-              >
-                <SceneIcon sceneType={opt.id} size={22} />
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        {isRendering && (
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: 11,
-              color: "#9ca3af",
-              marginTop: 8,
-            }}
-          >
-            Rendering... scene options available when complete
-          </p>
-        )}
-      </div>
-
       {/* ── Title + Intro ── */}
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 0" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
@@ -495,7 +333,7 @@ export default function ProductPage({ sceneData, locationName, sceneType, onScen
             gap: 16,
           }}
         >
-          {angles.map((angle, i) => (
+          {ANGLES.map((angle, i) => (
             <div
               key={i}
               onClick={galleryImages[i] ? onOpenViewer : undefined}
