@@ -228,6 +228,17 @@ export function useOverpassData() {
           roads.push({ polygon: poly, kind: roadKind });
         } else {
           if (coords.length < 3) continue;
+
+          // Water ways must be closed rings (first node == last node) to be
+          // valid area polygons. Open ways like river/stream centerlines
+          // would create huge bogus shapes if treated as filled polygons.
+          if (kind === "water") {
+            const isClosed =
+              way.nodes.length > 2 &&
+              way.nodes[0] === way.nodes[way.nodes.length - 1];
+            if (!isClosed) continue;
+          }
+
           const poly = projectPolygon(coords, bounds, scaleMMperM, modelWidthMm, modelDepthMm);
           if (poly.length < 3) continue;
 
