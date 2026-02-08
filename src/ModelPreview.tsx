@@ -2,6 +2,7 @@ import { useMemo, useEffect, useRef } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { SceneData, Polygon, RoadData } from "./types";
 import { BASE_THICKNESS_MM } from "./geometryUtils";
 
@@ -18,91 +19,68 @@ function polygonToShape(poly: Polygon): THREE.Shape {
   return shape;
 }
 
-// ---- Sub-components for individual geometry types ----
+// ---- Merged geometry components (one draw call each) ----
 
-function Building({
-  polygon,
-  heightMm,
-}: {
-  polygon: Polygon;
-  heightMm: number;
-}) {
+function MergedBuildings({ buildings }: { buildings: SceneData["buildings"] }) {
   const geometry = useMemo(() => {
-    const shape = polygonToShape(polygon);
-    return new THREE.ExtrudeGeometry(shape, {
-      depth: heightMm,
-      bevelEnabled: false,
-    });
-  }, [polygon, heightMm]);
+    if (buildings.length === 0) return null;
+    const geos: THREE.ExtrudeGeometry[] = [];
+    for (const b of buildings) {
+      const shape = polygonToShape(b.polygon);
+      geos.push(new THREE.ExtrudeGeometry(shape, { depth: b.heightMm, bevelEnabled: false }));
+    }
+    const merged = mergeGeometries(geos, false);
+    for (const g of geos) g.dispose();
+    return merged;
+  }, [buildings]);
 
+  if (!geometry) return null;
   return (
-    <mesh
-      geometry={geometry}
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, BASE_THICKNESS_MM / 2, 0]}
-      castShadow
-    >
-      <meshStandardMaterial
-        color="#b0b0b0"
-        roughness={0.65}
-        metalness={0.05}
-      />
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2, 0]} castShadow>
+      <meshStandardMaterial color="#b0b0b0" roughness={0.65} metalness={0.05} />
     </mesh>
   );
 }
 
-function Road({
-  polygon,
-  kind,
-}: {
-  polygon: Polygon;
-  kind: RoadData["kind"];
-}) {
-  const depth = kind === "major" ? 0.35 : kind === "minor" ? 0.25 : 0.15;
-
+function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
   const geometry = useMemo(() => {
-    const shape = polygonToShape(polygon);
-    return new THREE.ExtrudeGeometry(shape, {
-      depth,
-      bevelEnabled: false,
-    });
-  }, [polygon, depth]);
+    if (roads.length === 0) return null;
+    const geos: THREE.ExtrudeGeometry[] = [];
+    for (const r of roads) {
+      const depth = r.kind === "major" ? 0.35 : r.kind === "minor" ? 0.25 : 0.15;
+      const shape = polygonToShape(r.polygon);
+      geos.push(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }));
+    }
+    const merged = mergeGeometries(geos, false);
+    for (const g of geos) g.dispose();
+    return merged;
+  }, [roads]);
 
+  if (!geometry) return null;
   return (
-    <mesh
-      geometry={geometry}
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, BASE_THICKNESS_MM / 2 - 0.1, 0]}
-    >
-      <meshStandardMaterial
-        color="#6b7280"
-        roughness={0.85}
-        metalness={0}
-      />
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 - 0.1, 0]}>
+      <meshStandardMaterial color="#6b7280" roughness={0.85} metalness={0} />
     </mesh>
   );
 }
 
-function Water({ polygon }: { polygon: Polygon }) {
+function MergedWater({ water }: { water: SceneData["water"] }) {
   const geometry = useMemo(() => {
-    const shape = polygonToShape(polygon);
-    return new THREE.ExtrudeGeometry(shape, {
-      depth: 0.5,
-      bevelEnabled: false,
-    });
-  }, [polygon]);
+    if (water.length === 0) return null;
+    const geos: THREE.ExtrudeGeometry[] = [];
+    for (const w of water) {
+      const shape = polygonToShape(w.polygon);
+      geos.push(new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false }));
+    }
+    const merged = mergeGeometries(geos, false);
+    for (const g of geos) g.dispose();
+    return merged;
+  }, [water]);
 
+  if (!geometry) return null;
   return (
-    <mesh
-      geometry={geometry}
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, BASE_THICKNESS_MM / 2 - 0.3, 0]}
-    >
-      <meshStandardMaterial
-        color="#60a5fa"
-        roughness={0.2}
-        metalness={0.1}
-      />
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 - 0.3, 0]}>
+      <meshStandardMaterial color="#60a5fa" roughness={0.2} metalness={0.1} />
     </mesh>
   );
 }
@@ -351,15 +329,9 @@ export function CityScene({ sceneData }: { sceneData: SceneData }) {
           widthMm={sceneData.modelWidthMm}
           depthMm={sceneData.modelDepthMm}
         />
-        {sceneData.roads.map((r, i) => (
-          <Road key={`r-${i}`} polygon={r.polygon} kind={r.kind} />
-        ))}
-        {sceneData.buildings.map((b, i) => (
-          <Building key={`b-${i}`} polygon={b.polygon} heightMm={b.heightMm} />
-        ))}
-        {sceneData.water.map((w, i) => (
-          <Water key={`w-${i}`} polygon={w.polygon} />
-        ))}
+        <MergedRoads roads={sceneData.roads} />
+        <MergedBuildings buildings={sceneData.buildings} />
+        <MergedWater water={sceneData.water} />
       </group>
     </>
   );
