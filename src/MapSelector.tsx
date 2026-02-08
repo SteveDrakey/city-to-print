@@ -16,21 +16,32 @@ interface SearchResult {
 interface Props {
   onBoundsSelected: (bounds: Bounds) => void;
   onClear: () => void;
+  /** When controlled by a tab layout, signals whether this pane is visible. */
+  visible?: boolean;
 }
+
+const isTouchDevice =
+  typeof window !== "undefined" &&
+  ("ontouchstart" in window || navigator.maxTouchPoints > 0);
 
 /**
  * Interactive map with rectangle selection.
  *
- * Two-click workflow:
- *   1. Click to set first corner
- *   2. Move mouse to see preview rectangle
- *   3. Click to set second corner → selection emitted
+ * Two-tap/click workflow:
+ *   1. Tap/click to set first corner (marker shown)
+ *   2. Move mouse to see preview rectangle (desktop) or just navigate (mobile)
+ *   3. Tap/click to set second corner → selection emitted
  *
  * A "Clear selection" button resets everything.
  */
-export default function MapSelector({ onBoundsSelected, onClear }: Props) {
+export default function MapSelector({
+  onBoundsSelected,
+  onClear,
+  visible,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const markerRef = useRef<maplibregl.Marker | null>(null);
 
   // Selection state: null → picking first corner → picking second corner
   const [firstCorner, setFirstCorner] = useState<maplibregl.LngLat | null>(
@@ -46,6 +57,15 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ---- Resize map when tab becomes visible again ----
+  useEffect(() => {
+    if (visible === false) return;
+    const timer = setTimeout(() => {
+      mapRef.current?.resize();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [visible]);
+
   const handleSearch = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
       setSearchResults([]);
@@ -56,7 +76,7 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
-        { headers: { "Accept": "application/json" } }
+        { headers: { Accept: "application/json" } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: SearchResult[] = await res.json();
@@ -79,20 +99,17 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
     [handleSearch]
   );
 
-  const handleSelectResult = useCallback(
-    (result: SearchResult) => {
-      setShowResults(false);
-      setSearchQuery(result.display_name);
-      const map = mapRef.current;
-      if (!map) return;
-      map.flyTo({
-        center: [parseFloat(result.lon), parseFloat(result.lat)],
-        zoom: 14,
-        duration: 1500,
-      });
-    },
-    []
-  );
+  const handleSelectResult = useCallback((result: SearchResult) => {
+    setShowResults(false);
+    setSearchQuery(result.display_name);
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({
+      center: [parseFloat(result.lon), parseFloat(result.lat)],
+      zoom: 14,
+      duration: 1500,
+    });
+  }, []);
 
   // ---- Initialise map ----
   useEffect(() => {
@@ -244,7 +261,7 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
     };
   }, [firstCorner, selectedBounds, onBoundsSelected, updateRect]);
 
-  // ---- Mouse-move for preview rectangle ----
+  // ---- Mouse-move for preview rectangle (desktop) ----
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -261,6 +278,26 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
     };
   }, [firstCorner, selectedBounds, updateRect]);
 
+  // ---- First-corner marker (visual feedback, especially useful on touch) ----
+  useEffect(() => {
+    const map = mapRef.current;
+    if (markerRef.current) {
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
+    if (firstCorner && !selectedBounds && map) {
+      markerRef.current = new maplibregl.Marker({ color: "#3b82f6" })
+        .setLngLat(firstCorner)
+        .addTo(map);
+    }
+    return () => {
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+    };
+  }, [firstCorner, selectedBounds]);
+
   // ---- Clear ----
   const handleClear = () => {
     setFirstCorner(null);
@@ -275,20 +312,29 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
   };
 
   // ---- Status text ----
+  const tapOrClick = isTouchDevice ? "Tap" : "Click";
   let status: string;
   if (selectedBounds) {
     const [s, w, n, e] = selectedBounds;
-    status = `Selected: ${s.toFixed(5)}°N ${w.toFixed(5)}°E → ${n.toFixed(5)}°N ${e.toFixed(5)}°E`;
+    status = `Selected: ${s.toFixed(4)}°N ${w.toFixed(4)}°E → ${n.toFixed(4)}°N ${e.toFixed(4)}°E`;
   } else if (firstCorner) {
-    status = `First corner set (${firstCorner.lat.toFixed(5)}, ${firstCorner.lng.toFixed(5)}). Click to set second corner.`;
+    status = `Corner 1 set. ${tapOrClick} to set the second corner.`;
   } else {
-    status = "Click on the map to set the first corner of your selection.";
+    status = `${tapOrClick} on the map to set the first corner of your selection.`;
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
       {/* Search bar */}
-      <div style={{ position: "relative", padding: "8px 12px", background: "#f0f0f0", borderBottom: "1px solid #ddd" }}>
+      <div
+        style={{
+          position: "relative",
+          padding: "8px 12px",
+          background: "#f0f0f0",
+          borderBottom: "1px solid #ddd",
+          flexShrink: 0,
+        }}
+      >
         <input
           type="text"
           value={searchQuery}
@@ -297,8 +343,8 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
           placeholder="Search for a city or location..."
           style={{
             width: "100%",
-            padding: "8px 12px",
-            fontSize: 14,
+            padding: "10px 14px",
+            fontSize: 16, // 16px prevents iOS auto-zoom on focus
             border: "1px solid #ccc",
             borderRadius: 6,
             outline: "none",
@@ -306,7 +352,16 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
           }}
         />
         {searchLoading && (
-          <span style={{ position: "absolute", right: 22, top: 16, fontSize: 12, color: "#888" }}>
+          <span
+            style={{
+              position: "absolute",
+              right: 22,
+              top: "50%",
+              transform: "translateY(-50%)",
+              fontSize: 12,
+              color: "#888",
+            }}
+          >
             searching...
           </span>
         )}
@@ -322,7 +377,7 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
               borderRadius: "0 0 6px 6px",
               boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
               zIndex: 1000,
-              maxHeight: 200,
+              maxHeight: 250,
               overflowY: "auto",
             }}
           >
@@ -331,13 +386,23 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
                 key={i}
                 onClick={() => handleSelectResult(r)}
                 style={{
-                  padding: "8px 12px",
+                  padding: "12px 16px",
                   cursor: "pointer",
-                  fontSize: 13,
-                  borderBottom: i < searchResults.length - 1 ? "1px solid #eee" : "none",
+                  fontSize: 14,
+                  minHeight: 44, // Apple-recommended minimum touch target
+                  display: "flex",
+                  alignItems: "center",
+                  borderBottom:
+                    i < searchResults.length - 1
+                      ? "1px solid #eee"
+                      : "none",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f5")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "#f5f5f5")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "#fff")
+                }
               >
                 {r.display_name}
               </div>
@@ -360,23 +425,26 @@ export default function MapSelector({ onBoundsSelected, onClear }: Props) {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          flexShrink: 0,
         }}
       >
-        <span style={{ flex: 1 }}>{status}</span>
+        <span style={{ flex: 1, lineHeight: 1.4 }}>{status}</span>
         <button
           onClick={handleClear}
           style={{
-            padding: "5px 14px",
+            padding: "10px 18px",
             background: "#ef4444",
             color: "#fff",
             border: "none",
             borderRadius: 4,
             cursor: "pointer",
-            fontSize: 13,
+            fontSize: 14,
+            fontWeight: 500,
             whiteSpace: "nowrap",
+            minHeight: 44, // touch-friendly
           }}
         >
-          Clear selection
+          Clear
         </button>
       </div>
     </div>

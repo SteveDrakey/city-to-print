@@ -464,7 +464,9 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
 
       {/* Drag hint */}
       <div style={dragHintStyle}>
-        Drag to rotate
+        {("ontouchstart" in window || navigator.maxTouchPoints > 0)
+          ? "Touch to rotate"
+          : "Drag to rotate"}
       </div>
 
       {error && (
