@@ -265,11 +265,15 @@ export default function MapSelector({ onBoundsSelected, visible }: Props) {
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearchInput(e.target.value)}
-            onFocus={() => searchResults.length > 0 && setShowResults(true)}
+            onFocus={(e) => {
+              if (searchResults.length > 0) setShowResults(true);
+              e.target.select();
+            }}
             placeholder="Search for a city or location..."
             style={{
               width: "100%",
               padding: "10px 14px",
+              paddingRight: searchQuery ? 40 : 14,
               fontSize: 16,
               border: "1px solid #ccc",
               borderRadius: 6,
@@ -277,6 +281,37 @@ export default function MapSelector({ onBoundsSelected, visible }: Props) {
               boxSizing: "border-box",
             }}
           />
+          {searchQuery && !searchLoading && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setSearchResults([]);
+                setShowResults(false);
+              }}
+              aria-label="Clear search"
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "rgba(0,0,0,0.1)",
+                border: "none",
+                borderRadius: "50%",
+                width: 28,
+                height: 28,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                color: "#666",
+                fontSize: 16,
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          )}
           {searchLoading && (
             <span
               style={{
