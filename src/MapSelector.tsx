@@ -12,7 +12,7 @@ interface SearchResult {
 }
 
 interface Props {
-  onBoundsSelected: (bounds: Bounds, locationName?: string) => void;
+  onBoundsSelected: (bounds: Bounds, locationName?: string, bearing?: number) => void;
   /** When controlled by a tab layout, signals whether this pane is visible. */
   visible?: boolean;
   /** True while data is being fetched — disables generate button. */
@@ -306,7 +306,8 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
     const bounds: Bounds = [south, west, north, east];
     // Extract a short location name from the search query
     const name = searchQuery.split(",")[0].trim() || "";
-    onBoundsSelected(bounds, name);
+    const bearing = map.getBearing();
+    onBoundsSelected(bounds, name, bearing);
   }, [onBoundsSelected, searchQuery]);
 
   return (
