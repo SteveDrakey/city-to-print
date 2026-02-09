@@ -297,6 +297,8 @@ function roadHalfWidthMetres(kind: RoadData["kind"]): number {
       return 6;
     case "minor":
       return 3;
+    case "railway":
+      return 2;
     case "path":
       return 1.5;
   }

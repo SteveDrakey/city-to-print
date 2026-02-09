@@ -20,8 +20,8 @@ export interface WaterData {
 export interface RoadData {
   /** Buffered polygon representing the road strip */
   polygon: Polygon;
-  /** Road classification for width/styling: major, minor, path */
-  kind: "major" | "minor" | "path";
+  /** Road classification for width/styling: major, minor, path, railway */
+  kind: "major" | "minor" | "path" | "railway";
 }
 
 export interface SceneData {
