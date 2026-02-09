@@ -40,6 +40,7 @@ function overpassQuery(bounds: Bounds): string {
   relation["landuse"="reservoir"](${bbox});
   way["natural"="bay"](${bbox});
   relation["natural"="bay"](${bbox});
+  way["natural"="coastline"](${bbox});
   way["highway"](${bbox});
   way["railway"~"^(rail|light_rail|subway|tram|narrow_gauge|monorail)$"](${bbox});
 );
@@ -153,6 +154,297 @@ function assembleRings(
   }
 
   return rings;
+}
+
+/**
+ * Clip a lat/lon line segment against the bounding box, returning
+ * the intersection point where the segment exits/enters the box.
+ */
+function segmentBoxIntersection(
+  ax: number, ay: number, bx: number, by: number,
+  minX: number, minY: number, maxX: number, maxY: number
+): [number, number] | null {
+  // Check all four edges and return the closest intersection to point a
+  const edges: { t: number; pt: [number, number] }[] = [];
+
+  // Left edge (x = minX)
+  if (bx !== ax) {
+    const t = (minX - ax) / (bx - ax);
+    if (t >= 0 && t <= 1) {
+      const iy = ay + t * (by - ay);
+      if (iy >= minY && iy <= maxY) edges.push({ t, pt: [minX, iy] });
+    }
+  }
+  // Right edge (x = maxX)
+  if (bx !== ax) {
+    const t = (maxX - ax) / (bx - ax);
+    if (t >= 0 && t <= 1) {
+      const iy = ay + t * (by - ay);
+      if (iy >= minY && iy <= maxY) edges.push({ t, pt: [maxX, iy] });
+    }
+  }
+  // Bottom edge (y = minY)
+  if (by !== ay) {
+    const t = (minY - ay) / (by - ay);
+    if (t >= 0 && t <= 1) {
+      const ix = ax + t * (bx - ax);
+      if (ix >= minX && ix <= maxX) edges.push({ t, pt: [ix, minY] });
+    }
+  }
+  // Top edge (y = maxY)
+  if (by !== ay) {
+    const t = (maxY - ay) / (by - ay);
+    if (t >= 0 && t <= 1) {
+      const ix = ax + t * (bx - ax);
+      if (ix >= minX && ix <= maxX) edges.push({ t, pt: [ix, maxY] });
+    }
+  }
+
+  if (edges.length === 0) return null;
+  edges.sort((a, b) => a.t - b.t);
+  return edges[0].pt;
+}
+
+/**
+ * Returns the angle (0-4 scale, one per side) of a point on the bounding box
+ * perimeter, going clockwise from the top-left corner.
+ * This is used to walk the box boundary clockwise when closing coastline gaps.
+ *
+ * Convention for clockwise traversal (geographic coords where Y increases northward):
+ *   Top (maxY):    left→right  = 0..1
+ *   Right (maxX):  top→bottom  = 1..2
+ *   Bottom (minY): right→left  = 2..3
+ *   Left (minX):   bottom→top  = 3..4
+ */
+function boxAngle(
+  x: number, y: number,
+  minX: number, minY: number, maxX: number, maxY: number
+): number {
+  const eps = 1e-9;
+  const w = maxX - minX;
+  const h = maxY - minY;
+
+  // Top edge (y ≈ maxY)
+  if (Math.abs(y - maxY) < eps) return (x - minX) / w;
+  // Right edge (x ≈ maxX)
+  if (Math.abs(x - maxX) < eps) return 1 + (maxY - y) / h;
+  // Bottom edge (y ≈ minY)
+  if (Math.abs(y - minY) < eps) return 2 + (maxX - x) / w;
+  // Left edge (x ≈ minX)
+  if (Math.abs(x - minX) < eps) return 3 + (y - minY) / h;
+
+  return 0;
+}
+
+/**
+ * Generate the clockwise box-corner waypoints between two angles.
+ */
+function boxCornersBetween(
+  startAngle: number, endAngle: number,
+  minX: number, minY: number, maxX: number, maxY: number
+): [number, number][] {
+  const corners: [number, number][] = [
+    [maxX, maxY], // angle 1: top-right
+    [maxX, minY], // angle 2: bottom-right
+    [minX, minY], // angle 3: bottom-left
+    [minX, maxY], // angle 4: top-left (= 0 when wrapped)
+  ];
+  const cornerAngles = [1, 2, 3, 4];
+
+  const result: [number, number][] = [];
+  let a = startAngle;
+  // Walk clockwise: if end < start, we wrap around
+  let target = endAngle <= a ? endAngle + 4 : endAngle;
+
+  for (let i = 0; i < 4; i++) {
+    let ca = cornerAngles[i];
+    if (ca <= a) ca += 4;
+    if (ca > a && ca < target) {
+      result.push(corners[i]);
+    }
+  }
+  return result;
+}
+
+/**
+ * Build sea polygons from coastline ways.
+ *
+ * OSM coastline convention: land is to the LEFT, sea is to the RIGHT.
+ * The coastline ways trace the land-sea boundary. To form sea polygons
+ * within the bounding box:
+ * 1. Chain coastline segments together
+ * 2. Clip them to the bounding box
+ * 3. Close each chain by walking clockwise around the box boundary
+ *    (since sea is to the right of the coastline direction)
+ */
+function buildSeaPolygons(
+  coastlineWays: OsmWay[],
+  nodeMap: Map<number, [number, number]>,
+  bounds: Bounds
+): [number, number][][] {
+  if (coastlineWays.length === 0) return [];
+
+  const [south, west, north, east] = bounds;
+
+  // 1. Chain coastline segments by matching endpoints
+  const remaining = coastlineWays.map((w) => [...w.nodes]);
+  const chains: number[][] = [];
+
+  while (remaining.length > 0) {
+    let chain = remaining.shift()!;
+    let changed = true;
+
+    while (changed) {
+      changed = false;
+      const head = chain[0];
+      const tail = chain[chain.length - 1];
+
+      for (let i = 0; i < remaining.length; i++) {
+        const seg = remaining[i];
+        if (tail === seg[0]) {
+          chain = chain.concat(seg.slice(1));
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        } else if (head === seg[seg.length - 1]) {
+          chain = seg.concat(chain.slice(1));
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        } else if (tail === seg[seg.length - 1]) {
+          chain = chain.concat(seg.slice().reverse().slice(1));
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        } else if (head === seg[0]) {
+          chain = seg.slice().reverse().concat(chain.slice(1));
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    chains.push(chain);
+  }
+
+  // 2. Resolve chains to coordinates and clip to bbox
+  const seaPolygons: [number, number][][] = [];
+
+  for (const chain of chains) {
+    // Resolve node IDs to [lat, lon]
+    const coords: [number, number][] = [];
+    let valid = true;
+    for (const nid of chain) {
+      const c = nodeMap.get(nid);
+      if (!c) { valid = false; break; }
+      coords.push(c);
+    }
+    if (!valid || coords.length < 2) continue;
+
+    // Check if the chain is already a closed ring
+    const isClosed = chain[0] === chain[chain.length - 1];
+
+    if (isClosed) {
+      // Closed coastline ring (e.g. an island) — the interior
+      // is land, so the sea is the exterior. We skip these for now
+      // as they'd need hole-subtraction which is complex.
+      // However, if the ring goes clockwise (in lat/lon), the
+      // interior is sea (e.g. an enclosed bay).
+      // For simplicity, just add it as a water polygon.
+      // Check winding: if clockwise in geographic coords, interior is sea
+      let area = 0;
+      for (let i = 0; i < coords.length - 1; i++) {
+        area += (coords[i + 1][1] - coords[i][1]) * (coords[i + 1][0] + coords[i][0]);
+      }
+      // area > 0 means clockwise in lat/lon = sea inside
+      if (area > 0) {
+        seaPolygons.push(coords);
+      }
+      continue;
+    }
+
+    // 3. Clip the open chain to the bounding box and close via box edges
+    // Keep only points inside the bbox, and compute entry/exit points
+    const clippedPoints: [number, number][] = [];
+    let entryPoint: [number, number] | null = null;
+    let exitPoint: [number, number] | null = null;
+
+    for (let i = 0; i < coords.length; i++) {
+      const [lat, lon] = coords[i];
+      const inside = lat >= south && lat <= north && lon >= west && lon <= east;
+
+      if (i > 0) {
+        const [pLat, pLon] = coords[i - 1];
+        const pInside = pLat >= south && pLat <= north && pLon >= west && pLon <= east;
+
+        if (!pInside && inside) {
+          // Entering the bbox
+          const inter = segmentBoxIntersection(
+            pLon, pLat, lon, lat, west, south, east, north
+          );
+          if (inter) {
+            entryPoint = entryPoint ?? [inter[1], inter[0]]; // [lat, lon]
+            clippedPoints.push([inter[1], inter[0]]);
+          }
+        } else if (pInside && !inside) {
+          // Exiting the bbox
+          const inter = segmentBoxIntersection(
+            pLon, pLat, lon, lat, west, south, east, north
+          );
+          if (inter) {
+            exitPoint = [inter[1], inter[0]]; // [lat, lon]
+            clippedPoints.push([inter[1], inter[0]]);
+          }
+        } else if (!pInside && !inside) {
+          // Both outside — but the segment might cross the box
+          // For simplicity, skip this case (segments fully outside)
+          // In practice coastline segments are dense enough that
+          // two consecutive points outside is rare in the selection area
+        }
+      }
+
+      if (inside) {
+        if (clippedPoints.length === 0 && i === 0) {
+          entryPoint = [lat, lon];
+        }
+        clippedPoints.push([lat, lon]);
+      }
+    }
+
+    if (clippedPoints.length < 2) continue;
+
+    // Set exit point to last clipped point if not already set
+    if (!exitPoint) exitPoint = clippedPoints[clippedPoints.length - 1];
+    if (!entryPoint) entryPoint = clippedPoints[0];
+
+    // 4. Close the polygon by walking clockwise around the bbox
+    //    from the exit point back to the entry point.
+    //    (Sea is to the RIGHT of coastline direction = clockwise in bbox)
+    const exitAngle = boxAngle(exitPoint[1], exitPoint[0], west, south, east, north);
+    const entryAngle = boxAngle(entryPoint[1], entryPoint[0], west, south, east, north);
+
+    const corners = boxCornersBetween(exitAngle, entryAngle, west, south, east, north);
+
+    // Build the sea polygon: clipped coastline + box corners back to start
+    const seaPoly: [number, number][] = [...clippedPoints];
+    for (const [lon, lat] of corners) {
+      seaPoly.push([lat, lon]);
+    }
+    // Close it
+    seaPoly.push(clippedPoints[0]);
+
+    if (seaPoly.length >= 3) {
+      seaPolygons.push(seaPoly);
+    }
+  }
+
+  // 5. If no coastline chains intersected the bbox but we have coastlines
+  //    nearby, the entire bbox might be sea. Check if any coastline is
+  //    south/east (meaning we're in the sea). This is a heuristic.
+  //    Skip this for now — the main case is covered above.
+
+  return seaPolygons;
 }
 
 /**
@@ -282,6 +574,7 @@ function parseElements(
   const classify = (tags?: Record<string, string>) => {
     if (!tags) return null;
     if (tags["building"]) return "building";
+    if (tags["natural"] === "coastline") return "coastline";
     if (
       tags["natural"] === "water" ||
       tags["natural"] === "bay" ||
@@ -294,9 +587,17 @@ function parseElements(
     return null;
   };
 
+  // Collect coastline ways separately for sea polygon construction
+  const coastlineWays: OsmWay[] = [];
+
   for (const way of ways.values()) {
     const kind = classify(way.tags);
     if (!kind) continue;
+
+    if (kind === "coastline") {
+      coastlineWays.push(way);
+      continue;
+    }
 
     const coords = resolveWayCoords(way.nodes, nodeMap);
     if (!coords) continue;
@@ -414,6 +715,22 @@ function parseElements(
           });
         }
       }
+    }
+  }
+
+  // Build sea polygons from coastline ways
+  const seaPolygons = buildSeaPolygons(coastlineWays, nodeMap, bounds);
+  for (const seaCoords of seaPolygons) {
+    const poly = projectPolygon(
+      seaCoords,
+      bounds,
+      scaleMMperM,
+      modelWidthMm,
+      modelDepthMm,
+      bearing
+    );
+    if (poly.length >= 3) {
+      water.push({ polygon: poly });
     }
   }
 
