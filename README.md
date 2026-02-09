@@ -54,6 +54,29 @@ src/
   types.ts            — shared TypeScript interfaces
 ```
 
+### Payments (Stripe)
+
+Checkout uses [Stripe Payment Links](https://stripe.com/gb/payments/payment-links) — fully client-side, no backend needed.
+
+**Setup:**
+
+1. Create a [Stripe account](https://dashboard.stripe.com/register)
+2. In the Dashboard, create a **Product** called "Custom 3D City Model" priced at **£40**
+3. Create two **Payment Links**, each including that product:
+   - **UK** — add a £5 shipping rate, restrict to GB
+   - **International** — add a £15 shipping rate, restrict to US
+4. Enable **Apple Pay** and **Google Pay** in Dashboard → Settings → Payment methods
+5. Add the two link URLs as environment variables (in Vercel, or in a local `.env`):
+
+```
+VITE_STRIPE_LINK_UK=https://buy.stripe.com/your_uk_link
+VITE_STRIPE_LINK_INTL=https://buy.stripe.com/your_intl_link
+```
+
+Until these are set the checkout section shows a "Payment not configured" placeholder.
+
+See `.env.example` for reference.
+
 ### Tech stack
 
 - **React 18** + **TypeScript** — UI and type safety
