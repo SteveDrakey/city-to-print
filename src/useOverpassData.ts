@@ -38,7 +38,10 @@ function overpassQuery(bounds: Bounds): string {
   relation["natural"="water"](${bbox});
   relation["waterway"](${bbox});
   relation["landuse"="reservoir"](${bbox});
+  way["natural"="bay"](${bbox});
+  relation["natural"="bay"](${bbox});
   way["highway"](${bbox});
+  way["railway"~"^(rail|light_rail|subway|tram|narrow_gauge|monorail)$"](${bbox});
 );
 out body;
 >;
@@ -219,6 +222,17 @@ function mockSceneData(bounds: Bounds, bearing = 0): SceneData {
     ] as [number, number][],
     kind: "major",
   });
+  // Diagonal railway
+  const railHalfW = modelWidthMm * 0.008;
+  roads.push({
+    polygon: [
+      [-modelWidthMm / 2, -modelDepthMm / 3 - railHalfW],
+      [modelWidthMm / 2, modelDepthMm / 3 - railHalfW],
+      [modelWidthMm / 2, modelDepthMm / 3 + railHalfW],
+      [-modelWidthMm / 2, -modelDepthMm / 3 + railHalfW],
+    ] as [number, number][],
+    kind: "railway",
+  });
 
   return { buildings, water, roads, modelWidthMm, modelDepthMm };
 }
@@ -270,11 +284,13 @@ function parseElements(
     if (tags["building"]) return "building";
     if (
       tags["natural"] === "water" ||
+      tags["natural"] === "bay" ||
       tags["waterway"] ||
       tags["landuse"] === "reservoir"
     )
       return "water";
     if (tags["highway"]) return "road";
+    if (tags["railway"]) return "railway";
     return null;
   };
 
@@ -299,6 +315,19 @@ function parseElements(
       );
       if (poly.length < 3) continue;
       roads.push({ polygon: poly, kind: roadKind });
+    } else if (kind === "railway") {
+      if (coords.length < 2) continue;
+      const poly = projectRoad(
+        coords,
+        bounds,
+        scaleMMperM,
+        "railway",
+        modelWidthMm,
+        modelDepthMm,
+        bearing
+      );
+      if (poly.length < 3) continue;
+      roads.push({ polygon: poly, kind: "railway" });
     } else {
       if (coords.length < 3) continue;
 

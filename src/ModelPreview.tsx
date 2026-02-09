@@ -37,7 +37,7 @@ function MergedBuildings({ buildings }: { buildings: SceneData["buildings"] }) {
   if (!geometry) return null;
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2, 0]} castShadow>
-      <meshStandardMaterial color="#b0b0b0" roughness={0.65} metalness={0.05} />
+      <meshStandardMaterial color="#d0d0d0" roughness={0.65} metalness={0.05} />
     </mesh>
   );
 }
@@ -47,7 +47,7 @@ function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
     if (roads.length === 0) return null;
     const geos: THREE.ExtrudeGeometry[] = [];
     for (const r of roads) {
-      const depth = r.kind === "major" ? 0.35 : r.kind === "minor" ? 0.25 : 0.15;
+      const depth = r.kind === "major" ? 0.35 : r.kind === "minor" ? 0.25 : r.kind === "railway" ? 0.3 : 0.15;
       const shape = polygonToShape(r.polygon);
       geos.push(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }));
     }
@@ -59,7 +59,7 @@ function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
   if (!geometry) return null;
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 - 0.1, 0]}>
-      <meshStandardMaterial color="#6b7280" roughness={0.85} metalness={0} />
+      <meshStandardMaterial color="#808080" roughness={0.85} metalness={0} />
     </mesh>
   );
 }
