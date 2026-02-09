@@ -370,7 +370,8 @@ function parseElements(
           bounds,
           scaleMMperM,
           modelWidthMm,
-          modelDepthMm
+          modelDepthMm,
+          bearing
         );
         if (poly.length < 3) continue;
 
