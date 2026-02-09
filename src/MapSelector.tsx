@@ -20,7 +20,7 @@ interface Props {
 }
 
 /** Minimum zoom level required to generate a preview / place an order. */
-const MIN_ZOOM_FOR_GENERATE = 14;
+const MIN_ZOOM_FOR_GENERATE = 11;
 
 /**
  * Interactive map with viewport-frame area selection.
