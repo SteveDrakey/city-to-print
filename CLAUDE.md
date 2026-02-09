@@ -6,6 +6,7 @@ City-to-print is a React web app that turns real-world map areas into 3D-printab
 
 ## Commands
 
+- `npm install` — **always run first** before build/dev (dependencies are not checked in)
 - `npm run dev` — start dev server (Vite)
 - `npm run build` — type-check with tsc then build for production
 - `npm run preview` — serve the production build locally
