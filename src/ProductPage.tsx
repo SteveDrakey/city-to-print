@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { CaptureRender } from "./ModelPreview";
+import CheckoutSection from "./CheckoutSection";
 import type { SceneData } from "./types";
 
 /** Camera angles for the product gallery shots. */
@@ -551,11 +552,11 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
         </div>
       </div>
 
-      {/* ── Final CTA ── */}
+      {/* ── 3D Viewer CTA ── */}
       <div
         style={{
           textAlign: "center",
-          padding: "0 24px 64px",
+          padding: "0 24px 48px",
         }}
       >
         <button
@@ -574,10 +575,10 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
         >
           View your model in 3D
         </button>
-        <p style={{ marginTop: 12, fontSize: 13, color: "#999" }}>
-          Checkout coming soon
-        </p>
       </div>
+
+      {/* ── Checkout ── */}
+      <CheckoutSection heroImage={heroImage} locationName={displayName} />
 
       {/* Spinner keyframe (shared) */}
       <style>{`
