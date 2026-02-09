@@ -39,9 +39,9 @@ export default function App() {
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
   const handleBoundsSelected = useCallback(
-    (bounds: Bounds, name?: string) => {
+    (bounds: Bounds, name?: string, bearing?: number) => {
       // Start Overpass data fetch immediately
-      fetchData(bounds);
+      fetchData(bounds, bearing ?? 0);
       setSelectedBounds(bounds);
       setAreaDescription("");
 

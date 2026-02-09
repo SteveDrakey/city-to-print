@@ -157,8 +157,8 @@ function assembleRings(
  * unavailable or returns nothing. This lets the 3D preview still
  * show something useful during development or outages.
  */
-function mockSceneData(bounds: Bounds): SceneData {
-  const { scaleMMperM, modelWidthMm, modelDepthMm } = computeScale(bounds);
+function mockSceneData(bounds: Bounds, bearing = 0): SceneData {
+  const { scaleMMperM, modelWidthMm, modelDepthMm } = computeScale(bounds, bearing);
   const buildings = [];
   const water = [];
 
@@ -243,7 +243,8 @@ async function fetchOverpass(query: string): Promise<OsmElement[]> {
  */
 function parseElements(
   elements: OsmElement[],
-  bounds: Bounds
+  bounds: Bounds,
+  bearing = 0
 ): SceneData | null {
   const nodeMap = new Map<number, [number, number]>();
   const ways = new Map<number, OsmWay>();
@@ -259,7 +260,7 @@ function parseElements(
     }
   }
 
-  const { scaleMMperM, modelWidthMm, modelDepthMm } = computeScale(bounds);
+  const { scaleMMperM, modelWidthMm, modelDepthMm } = computeScale(bounds, bearing);
   const buildings: SceneData["buildings"] = [];
   const water: SceneData["water"] = [];
   const roads: SceneData["roads"] = [];
@@ -293,7 +294,8 @@ function parseElements(
         scaleMMperM,
         roadKind,
         modelWidthMm,
-        modelDepthMm
+        modelDepthMm,
+        bearing
       );
       if (poly.length < 3) continue;
       roads.push({ polygon: poly, kind: roadKind });
@@ -312,7 +314,8 @@ function parseElements(
         bounds,
         scaleMMperM,
         modelWidthMm,
-        modelDepthMm
+        modelDepthMm,
+        bearing
       );
       if (poly.length < 3) continue;
 
@@ -347,7 +350,8 @@ function parseElements(
           bounds,
           scaleMMperM,
           modelWidthMm,
-          modelDepthMm
+          modelDepthMm,
+          bearing
         );
         if (poly.length < 3) continue;
         water.push({ polygon: poly });
@@ -366,7 +370,8 @@ function parseElements(
           bounds,
           scaleMMperM,
           modelWidthMm,
-          modelDepthMm
+          modelDepthMm,
+          bearing
         );
         if (poly.length < 3) continue;
 
@@ -405,7 +410,7 @@ export function useOverpassData() {
   // Allow cancellation when a new fetch is triggered while retrying
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchData = useCallback(async (bounds: Bounds) => {
+  const fetchData = useCallback(async (bounds: Bounds, bearing = 0) => {
     // Cancel any in-flight retry chain
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -433,7 +438,7 @@ export function useOverpassData() {
         const elements = await fetchOverpass(query);
         if (controller.signal.aborted) return;
 
-        const parsed = parseElements(elements, bounds);
+        const parsed = parseElements(elements, bounds, bearing);
         if (parsed) {
           setSceneData(parsed);
           setLoading(false);
@@ -446,7 +451,7 @@ export function useOverpassData() {
           console.warn(
             "Overpass returned no usable data after retries — using mock dataset"
           );
-          setSceneData(mockSceneData(bounds));
+          setSceneData(mockSceneData(bounds, bearing));
           setLoading(false);
           return;
         }
@@ -462,7 +467,7 @@ export function useOverpassData() {
           setError(
             err instanceof Error ? err.message : "Failed to fetch OSM data"
           );
-          setSceneData(mockSceneData(bounds));
+          setSceneData(mockSceneData(bounds, bearing));
           setLoading(false);
           return;
         }

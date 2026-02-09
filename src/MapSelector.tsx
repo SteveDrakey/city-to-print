@@ -12,7 +12,7 @@ interface SearchResult {
 }
 
 interface Props {
-  onBoundsSelected: (bounds: Bounds, locationName?: string) => void;
+  onBoundsSelected: (bounds: Bounds, locationName?: string, bearing?: number) => void;
   /** When controlled by a tab layout, signals whether this pane is visible. */
   visible?: boolean;
   /** True while data is being fetched — disables generate button. */
@@ -20,7 +20,7 @@ interface Props {
 }
 
 /** Minimum zoom level required to generate a preview / place an order. */
-const MIN_ZOOM_FOR_GENERATE = 11;
+const MIN_ZOOM_FOR_GENERATE = Number(import.meta.env.VITE_MIN_ZOOM_FOR_GENERATE) || 12;
 
 /**
  * Interactive map with viewport-frame area selection.
@@ -46,6 +46,17 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   // Zoom tracking — drives the "too far out" UI
   const [currentZoom, setCurrentZoom] = useState(13);
   const tooFarOut = currentZoom < MIN_ZOOM_FOR_GENERATE;
+  const prevTooFarOutRef = useRef(tooFarOut);
+
+  // Haptic feedback when crossing the zoom threshold (mobile)
+  useEffect(() => {
+    if (tooFarOut !== prevTooFarOutRef.current) {
+      prevTooFarOutRef.current = tooFarOut;
+      if (navigator.vibrate) {
+        navigator.vibrate(15);
+      }
+    }
+  }, [tooFarOut]);
 
   // ---- Dimensions display (updated directly on DOM for perf) ----
   const updateDimensions = useCallback(() => {
@@ -58,18 +69,25 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
     if (frameRect.width === 0 || frameRect.height === 0) return;
 
     const mapRect = map.getContainer().getBoundingClientRect();
-    const tl = map.unproject([
-      frameRect.left - mapRect.left,
-      frameRect.top - mapRect.top,
-    ]);
-    const br = map.unproject([
-      frameRect.right - mapRect.left,
-      frameRect.bottom - mapRect.top,
-    ]);
+    const left = frameRect.left - mapRect.left;
+    const top = frameRect.top - mapRect.top;
+    const right = frameRect.right - mapRect.left;
+    const bottom = frameRect.bottom - mapRect.top;
 
-    const latDiff = Math.abs(tl.lat - br.lat);
-    const lngDiff = Math.abs(tl.lng - br.lng);
-    const avgLat = (tl.lat + br.lat) / 2;
+    const corners = [
+      map.unproject([left, top]),
+      map.unproject([right, top]),
+      map.unproject([right, bottom]),
+      map.unproject([left, bottom]),
+    ];
+    const south = Math.min(...corners.map((c) => c.lat));
+    const north = Math.max(...corners.map((c) => c.lat));
+    const west = Math.min(...corners.map((c) => c.lng));
+    const east = Math.max(...corners.map((c) => c.lng));
+
+    const latDiff = north - south;
+    const lngDiff = east - west;
+    const avgLat = (south + north) / 2;
     const metersH = latDiff * 111320;
     const metersW = lngDiff * 111320 * Math.cos((avgLat * Math.PI) / 180);
 
@@ -229,6 +247,7 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       zoom: initZoom,
       bearing: initBearing,
       maxZoom: 16,
+      maxPitch: 0,
       maxTileCacheSize: 64,
     });
 
@@ -269,19 +288,27 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
     if (frameRect.width === 0 || frameRect.height === 0) return;
 
     const mapRect = map.getContainer().getBoundingClientRect();
-    const tl = map.unproject([
-      frameRect.left - mapRect.left,
-      frameRect.top - mapRect.top,
-    ]);
-    const br = map.unproject([
-      frameRect.right - mapRect.left,
-      frameRect.bottom - mapRect.top,
-    ]);
+    const left = frameRect.left - mapRect.left;
+    const top = frameRect.top - mapRect.top;
+    const right = frameRect.right - mapRect.left;
+    const bottom = frameRect.bottom - mapRect.top;
 
-    const bounds: Bounds = [br.lat, tl.lng, tl.lat, br.lng];
+    const corners = [
+      map.unproject([left, top]),
+      map.unproject([right, top]),
+      map.unproject([right, bottom]),
+      map.unproject([left, bottom]),
+    ];
+    const south = Math.min(...corners.map((c) => c.lat));
+    const north = Math.max(...corners.map((c) => c.lat));
+    const west = Math.min(...corners.map((c) => c.lng));
+    const east = Math.max(...corners.map((c) => c.lng));
+
+    const bounds: Bounds = [south, west, north, east];
     // Extract a short location name from the search query
     const name = searchQuery.split(",")[0].trim() || "";
-    onBoundsSelected(bounds, name);
+    const bearing = map.getBearing();
+    onBoundsSelected(bounds, name, bearing);
   }, [onBoundsSelected, searchQuery]);
 
   return (

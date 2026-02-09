@@ -39,11 +39,30 @@ export function latLonToLocalMetres(
 }
 
 /**
+ * Rotate a 2D point counter-clockwise by the given angle (degrees).
+ *
+ * When applied with the map's bearing this aligns the model so that
+ * "up in the model" matches "up on the user's screen" rather than
+ * geographic north.
+ */
+function rotatePoint(x: number, y: number, angleDeg: number): Point2D {
+  const rad = (angleDeg * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  return [x * c - y * s, x * s + y * c];
+}
+
+/**
  * Compute the real-world width and height (metres) of the selection,
  * and return the scale factor (mm per metre) that fits the longest
  * axis into MODEL_SIZE_MM.
+ *
+ * When bearingDeg ≠ 0 the bounds represent the axis-aligned bounding
+ * box of a rotated selection frame.  We recover the actual frame
+ * dimensions so the model is scaled to the visible area, not the
+ * (larger) AABB.
  */
-export function computeScale(bounds: Bounds): {
+export function computeScale(bounds: Bounds, bearingDeg = 0): {
   scaleMMperM: number;
   realWidthM: number;
   realHeightM: number;
@@ -54,9 +73,43 @@ export function computeScale(bounds: Bounds): {
   const [w, _h1] = latLonToLocalMetres(south, east, bounds);
   const [_w2, h] = latLonToLocalMetres(north, west, bounds);
 
-  // Width = east-west span, Height = north-south span
-  const realWidthM = Math.abs(w) * 2;
-  const realHeightM = Math.abs(h) * 2;
+  // AABB half-dimensions in metres
+  const aabbHalfW = Math.abs(w);
+  const aabbHalfH = Math.abs(h);
+
+  let realWidthM: number;
+  let realHeightM: number;
+
+  if (Math.abs(bearingDeg % 360) < 0.1) {
+    // No rotation — AABB equals the frame
+    realWidthM = aabbHalfW * 2;
+    realHeightM = aabbHalfH * 2;
+  } else {
+    // Recover the actual (rotated) frame dimensions from the AABB.
+    // The screen frame (fw × fh) rotated by bearing B produces an AABB of:
+    //   aabbW = fw·|cos B| + fh·|sin B|
+    //   aabbH = fw·|sin B| + fh·|cos B|
+    const rad = (Math.abs(bearingDeg) * Math.PI) / 180;
+    const c = Math.abs(Math.cos(rad));
+    const s = Math.abs(Math.sin(rad));
+    const denom = c * c - s * s;
+
+    let frameHalfW: number;
+    let frameHalfH: number;
+
+    if (Math.abs(denom) > 0.01) {
+      frameHalfW = Math.abs((aabbHalfW * c - aabbHalfH * s) / denom);
+      frameHalfH = Math.abs((aabbHalfH * c - aabbHalfW * s) / denom);
+    } else {
+      // Near 45° / 135° — denominator ≈ 0; assume square frame
+      frameHalfW = aabbHalfW / (c + s);
+      frameHalfH = aabbHalfH / (c + s);
+    }
+
+    realWidthM = frameHalfW * 2;
+    realHeightM = frameHalfH * 2;
+  }
+
   const maxDim = Math.max(realWidthM, realHeightM);
   const scaleMMperM = maxDim > 0 ? MODEL_SIZE_MM / maxDim : 1;
 
@@ -157,11 +210,13 @@ export function projectPolygon(
   bounds: Bounds,
   scaleMMperM: number,
   modelWidthMm?: number,
-  modelDepthMm?: number
+  modelDepthMm?: number,
+  bearingDeg = 0
 ): Polygon {
   const projected = coords.map(([lat, lon]) => {
     const [xm, ym] = latLonToLocalMetres(lat, lon, bounds);
-    return [xm * scaleMMperM, ym * scaleMMperM] as Point2D;
+    const mm: Point2D = [xm * scaleMMperM, ym * scaleMMperM];
+    return bearingDeg ? rotatePoint(mm[0], mm[1], bearingDeg) : mm;
   });
 
   // If model dimensions provided, clip to the base plate boundary
@@ -316,12 +371,14 @@ export function projectRoad(
   scaleMMperM: number,
   kind: RoadData["kind"],
   modelWidthMm: number,
-  modelDepthMm: number
+  modelDepthMm: number,
+  bearingDeg = 0
 ): Polygon {
-  // Project line points to model mm
+  // Project line points to model mm, then rotate to match map bearing
   const line: Point2D[] = coords.map(([lat, lon]) => {
     const [xm, ym] = latLonToLocalMetres(lat, lon, bounds);
-    return [xm * scaleMMperM, ym * scaleMMperM] as Point2D;
+    const mm: Point2D = [xm * scaleMMperM, ym * scaleMMperM];
+    return bearingDeg ? rotatePoint(mm[0], mm[1], bearingDeg) : mm;
   });
 
   const halfWidthMm = roadHalfWidthMetres(kind) * scaleMMperM;
