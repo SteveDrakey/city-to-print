@@ -58,7 +58,7 @@ function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
 
   if (!geometry) return null;
   return (
-    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 + 0.3, 0]}>
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 + 0.25, 0]}>
       <meshStandardMaterial color="#808080" roughness={0.85} metalness={0} />
     </mesh>
   );
@@ -70,7 +70,7 @@ function MergedWater({ water }: { water: SceneData["water"] }) {
     const geos: THREE.ExtrudeGeometry[] = [];
     for (const w of water) {
       const shape = polygonToShape(w.polygon);
-      geos.push(new THREE.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: false }));
+      geos.push(new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false }));
     }
     const merged = mergeGeometries(geos, false);
     for (const g of geos) g.dispose();
@@ -79,7 +79,7 @@ function MergedWater({ water }: { water: SceneData["water"] }) {
 
   if (!geometry) return null;
   return (
-    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2, 0]}>
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 - 0.3, 0]}>
       <meshStandardMaterial color="#60a5fa" roughness={0.2} metalness={0.1} />
     </mesh>
   );
