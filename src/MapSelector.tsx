@@ -19,6 +19,9 @@ interface Props {
   loading?: boolean;
 }
 
+/** Minimum zoom level required to generate a preview / place an order. */
+const MIN_ZOOM_FOR_GENERATE = 11;
+
 /**
  * Interactive map with viewport-frame area selection.
  *
@@ -39,6 +42,10 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Zoom tracking — drives the "too far out" UI
+  const [currentZoom, setCurrentZoom] = useState(13);
+  const tooFarOut = currentZoom < MIN_ZOOM_FOR_GENERATE;
 
   // ---- Dimensions display (updated directly on DOM for perf) ----
   const updateDimensions = useCallback(() => {
@@ -235,6 +242,9 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
     map.on("move", updateDimensions);
     map.on("load", updateDimensions);
     map.on("moveend", updateHash);
+    map.on("zoom", () => setCurrentZoom(map.getZoom()));
+    // Seed initial zoom into state once the map is ready
+    map.on("load", () => setCurrentZoom(map.getZoom()));
 
     return () => {
       map.remove();
@@ -459,11 +469,12 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
             left: "12%",
             width: "76%",
             height: "76%",
-            border: "2.5px dashed #3b82f6",
+            border: `2.5px dashed ${tooFarOut ? "#f59e0b" : "#3b82f6"}`,
             borderRadius: 4,
             boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.25)",
             pointerEvents: "none",
             zIndex: 1,
+            transition: "border-color 0.3s",
           }}
         />
 
@@ -487,6 +498,32 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
             whiteSpace: "nowrap",
           }}
         />
+
+        {/* "Zoom in" banner — shown when too far out to generate */}
+        {tooFarOut && (
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(245, 158, 11, 0.92)",
+              backdropFilter: "blur(8px)",
+              color: "#1a1a2e",
+              padding: "10px 20px",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
+              pointerEvents: "none",
+              zIndex: 10,
+              whiteSpace: "nowrap",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+              textAlign: "center",
+            }}
+          >
+            Zoom in closer to generate a model
+          </div>
+        )}
       </div>
 
       {/* Bottom action bar */}
@@ -503,28 +540,31 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
         <span
           style={{
             flex: 1,
-            color: "#a0a0b0",
+            color: tooFarOut ? "#f59e0b" : "#a0a0b0",
             fontSize: 13,
             lineHeight: 1.4,
+            transition: "color 0.3s",
           }}
         >
-          Pan &amp; zoom to frame your area
+          {tooFarOut
+            ? "Zoom in to select an area for printing"
+            : "Pan & zoom to frame your area"}
         </span>
         <button
           onClick={handleGenerate}
-          disabled={loading}
+          disabled={loading || tooFarOut}
           style={{
             padding: "12px 24px",
-            background: loading ? "#6b7280" : "#3b82f6",
+            background: loading || tooFarOut ? "#6b7280" : "#3b82f6",
             color: "#fff",
             border: "none",
             borderRadius: 6,
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: loading || tooFarOut ? "not-allowed" : "pointer",
             fontSize: 15,
             fontWeight: 600,
             whiteSpace: "nowrap",
             minHeight: 48,
-            opacity: loading ? 0.8 : 1,
+            opacity: loading || tooFarOut ? 0.8 : 1,
             transition: "background 0.2s, opacity 0.2s",
           }}
         >
