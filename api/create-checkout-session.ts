@@ -50,10 +50,11 @@ export default async function handler(
   const stripe = new Stripe(apiKey);
 
   try {
-    const { bounds, locationName, shippingRegion, mapUrl } = req.body as {
+    const { bounds, locationName, shippingRegion, bearing, mapUrl } = req.body as {
       bounds: [number, number, number, number] | null;
       locationName: string;
       shippingRegion: "uk" | "international";
+      bearing?: number;
       mapUrl?: string;
     };
 
@@ -77,6 +78,7 @@ export default async function handler(
       top_left_lng: String(west),
       bottom_right_lat: String(south),
       bottom_right_lng: String(east),
+      ...(bearing != null ? { bearing: String(bearing) } : {}),
       ...(mapUrl ? { mapUrl } : {}),
     };
 

@@ -29,6 +29,10 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
     setError(null);
 
     try {
+      // Extract bearing from the URL hash so we pass it explicitly to Stripe
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const bearing = parseFloat(hashParams.get("b") || "0") || 0;
+
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,6 +40,7 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
           bounds,
           locationName,
           shippingRegion: region,
+          bearing,
           mapUrl: window.location.href,
         }),
       });
