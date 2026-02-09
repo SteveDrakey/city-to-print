@@ -56,24 +56,37 @@ src/
 
 ### Payments (Stripe)
 
-Checkout uses [Stripe Payment Links](https://stripe.com/gb/payments/payment-links) — fully client-side, no backend needed.
+Checkout uses the [Stripe Checkout Sessions API](https://docs.stripe.com/api/checkout/sessions) via a Vercel serverless function. The server creates a Checkout Session with the model details (location name, map bounds, shipping) baked into metadata — no sensitive data passes through query params.
+
+**How it works:**
+
+1. User clicks **Pay** on the order summary
+2. Frontend POSTs `{ bounds, locationName, shippingRegion }` to `/api/create-checkout-session`
+3. The serverless function creates a Stripe Checkout Session with line items, shipping, and metadata
+4. User is redirected to the Stripe-hosted checkout page (supports Apple Pay, Google Pay, cards)
 
 **Setup:**
 
 1. Create a [Stripe account](https://dashboard.stripe.com/register)
-2. In the Dashboard, create a **Product** called "Custom 3D City Model" priced at **£40**
-3. Create two **Payment Links**, each including that product:
-   - **UK** — add a £5 shipping rate, restrict to GB
-   - **International** — add a £15 shipping rate, restrict to US
-4. Enable **Apple Pay** and **Google Pay** in Dashboard → Settings → Payment methods
-5. Add the two link URLs as environment variables (in Vercel, or in a local `.env`):
+2. Enable **Apple Pay** and **Google Pay** in Dashboard → Settings → Payment methods
+3. Copy your **Secret key** from Dashboard → Developers → API keys
+4. Add it as an environment variable in Vercel (or in a local `.env`):
 
 ```
-VITE_STRIPE_LINK_UK=https://buy.stripe.com/your_uk_link
-VITE_STRIPE_LINK_INTL=https://buy.stripe.com/your_intl_link
+STRIPE_SECRET_KEY=sk_test_xxx
 ```
 
-Until these are set the checkout section shows a "Payment not configured" placeholder.
+That's it — no products, prices, or payment links to create in the Dashboard. The serverless function creates line items on the fly (£40 model + £5 UK / £15 international shipping).
+
+**Local development:**
+
+The `/api/` route is a Vercel serverless function and won't run under `vite dev`. To test checkout locally, use the [Vercel CLI](https://vercel.com/docs/cli):
+
+```bash
+npm i -g vercel
+vercel env pull .env.local   # pulls your env vars from Vercel
+vercel dev                    # runs both Vite and serverless functions
+```
 
 See `.env.example` for reference.
 

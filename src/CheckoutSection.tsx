@@ -17,28 +17,39 @@ const SHIPPING: Record<ShippingRegion, { label: string; price: number }> = {
 
 export default function CheckoutSection({ heroImage, locationName, bounds }: Props) {
   const [region, setRegion] = useState<ShippingRegion>("uk");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const shipping = SHIPPING[region];
   const total = PRODUCT_PRICE + shipping.price;
 
-  const linkUk = import.meta.env.VITE_STRIPE_LINK_UK as string | undefined;
-  const linkIntl = import.meta.env.VITE_STRIPE_LINK_INTL as string | undefined;
-  const paymentLink = region === "uk" ? linkUk : linkIntl;
-  const isConfigured = !!(linkUk || linkIntl);
+  const handleCheckout = async () => {
+    if (!bounds) return;
+    setLoading(true);
+    setError(null);
 
-  const handleCheckout = () => {
-    if (!paymentLink) return;
-    const url = new URL(paymentLink);
-    // Encode the selected area as SW-corner lat,lon + span (it's a square)
-    if (bounds) {
-      const [south, west, , east] = bounds;
-      const span = +(east - west).toFixed(6);
-      url.searchParams.set(
-        "client_reference_id",
-        `${south.toFixed(6)},${west.toFixed(6)},${span}`
-      );
+    try {
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bounds,
+          locationName,
+          shippingRegion: region,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Checkout failed");
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setLoading(false);
     }
-    window.location.href = url.toString();
   };
 
   return (
@@ -252,71 +263,50 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
 
         {/* Checkout button */}
         <div style={{ padding: "20px 24px" }}>
-          {isConfigured ? (
-            <>
-              <button
-                onClick={handleCheckout}
-                disabled={!paymentLink}
-                style={{
-                  width: "100%",
-                  padding: "16px 24px",
-                  background: paymentLink ? "#1a1a2e" : "#94a3b8",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 10,
-                  cursor: paymentLink ? "pointer" : "not-allowed",
-                  fontSize: 16,
-                  fontWeight: 600,
-                  letterSpacing: 0.3,
-                  transition: "background 0.15s ease",
-                }}
-              >
-                {`Pay \u00A3${total.toFixed(2)}`}
-              </button>
-              {!paymentLink && (
-                <p
-                  style={{
-                    textAlign: "center",
-                    marginTop: 10,
-                    fontSize: 12,
-                    color: "#dc2626",
-                  }}
-                >
-                  No payment link configured for this shipping region.
-                </p>
-              )}
-              <p
-                style={{
-                  textAlign: "center",
-                  marginTop: 12,
-                  fontSize: 12,
-                  color: "#aaa",
-                  lineHeight: 1.6,
-                }}
-              >
-                Secure checkout powered by Stripe.
-                <br />
-                Apple Pay, Google Pay, and cards accepted.
-              </p>
-            </>
-          ) : (
-            <div
+          <button
+            onClick={handleCheckout}
+            disabled={!bounds || loading}
+            style={{
+              width: "100%",
+              padding: "16px 24px",
+              background: bounds && !loading ? "#1a1a2e" : "#94a3b8",
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              cursor: bounds && !loading ? "pointer" : "not-allowed",
+              fontSize: 16,
+              fontWeight: 600,
+              letterSpacing: 0.3,
+              transition: "background 0.15s ease",
+            }}
+          >
+            {loading ? "Redirecting to checkout…" : `Pay \u00A3${total.toFixed(2)}`}
+          </button>
+          {error && (
+            <p
               style={{
                 textAlign: "center",
-                padding: "12px 0",
-                fontSize: 14,
-                color: "#888",
-                background: "#f5f3f0",
-                borderRadius: 10,
+                marginTop: 10,
+                fontSize: 12,
+                color: "#dc2626",
               }}
             >
-              Payment not configured yet.
-              <br />
-              <span style={{ fontSize: 12, color: "#aaa" }}>
-                Set VITE_STRIPE_LINK_UK and VITE_STRIPE_LINK_INTL env vars.
-              </span>
-            </div>
+              {error}
+            </p>
           )}
+          <p
+            style={{
+              textAlign: "center",
+              marginTop: 12,
+              fontSize: 12,
+              color: "#aaa",
+              lineHeight: 1.6,
+            }}
+          >
+            Secure checkout powered by Stripe.
+            <br />
+            Apple Pay, Google Pay, and cards accepted.
+          </p>
         </div>
       </div>
     </div>
