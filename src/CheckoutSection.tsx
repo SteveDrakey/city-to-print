@@ -1,10 +1,12 @@
 import { useState } from "react";
+import type { Bounds } from "./types";
 
 type ShippingRegion = "uk" | "international";
 
 interface Props {
   heroImage: string | null;
   locationName: string;
+  bounds: Bounds | null;
 }
 
 const PRODUCT_PRICE = 40;
@@ -13,7 +15,7 @@ const SHIPPING: Record<ShippingRegion, { label: string; price: number }> = {
   international: { label: "International (USA etc.)", price: 15 },
 };
 
-export default function CheckoutSection({ heroImage, locationName }: Props) {
+export default function CheckoutSection({ heroImage, locationName, bounds }: Props) {
   const [region, setRegion] = useState<ShippingRegion>("uk");
 
   const shipping = SHIPPING[region];
@@ -25,9 +27,18 @@ export default function CheckoutSection({ heroImage, locationName }: Props) {
   const isConfigured = !!(linkUk || linkIntl);
 
   const handleCheckout = () => {
-    if (paymentLink) {
-      window.location.href = paymentLink;
+    if (!paymentLink) return;
+    const url = new URL(paymentLink);
+    // Encode the selected area as SW-corner lat,lon + span (it's a square)
+    if (bounds) {
+      const [south, west, , east] = bounds;
+      const span = +(east - west).toFixed(6);
+      url.searchParams.set(
+        "client_reference_id",
+        `${south.toFixed(6)},${west.toFixed(6)},${span}`
+      );
     }
+    window.location.href = url.toString();
   };
 
   return (

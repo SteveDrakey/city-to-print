@@ -11,6 +11,7 @@ export default function App() {
     useOverpassData();
   const [locationName, setLocationName] = useState("");
   const [areaDescription, setAreaDescription] = useState("");
+  const [selectedBounds, setSelectedBounds] = useState<Bounds | null>(null);
   const [showViewer, setShowViewer] = useState(false);
   const productRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -22,6 +23,7 @@ export default function App() {
     (bounds: Bounds, name?: string) => {
       // Start Overpass data fetch immediately
       fetchData(bounds);
+      setSelectedBounds(bounds);
       setAreaDescription("");
 
       // Set search name as interim while we reverse geocode
@@ -175,6 +177,7 @@ export default function App() {
             sceneData={sceneData}
             locationName={locationName}
             areaDescription={areaDescription}
+            bounds={selectedBounds}
             onOpenViewer={() => setShowViewer(true)}
           />
         </div>
