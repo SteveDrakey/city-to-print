@@ -1,7 +1,12 @@
-import { useState, useCallback } from "react";
-import { CaptureRender } from "./ModelPreview";
+import { useState, useCallback, lazy, Suspense } from "react";
 import CheckoutSection from "./CheckoutSection";
 import type { SceneData, Bounds } from "./types";
+
+/** Lazy-load the client-side CaptureRender — keeps Three.js out of the main bundle
+ *  when server-rendered images are available. */
+const LazyCaptureRender = lazy(() =>
+  import("./ModelPreview").then((m) => ({ default: m.CaptureRender }))
+);
 
 /** Camera angles for the product gallery shots. */
 const ANGLES: {
@@ -47,6 +52,10 @@ interface Props {
   areaDescription?: string;
   bounds: Bounds | null;
   onOpenViewer: () => void;
+  /** Pre-rendered images from the server (hero + 4 gallery). null if not yet available. */
+  serverImages: string[] | null;
+  /** Whether the server is currently rendering. */
+  renderingOnServer: boolean;
 }
 
 /** Truncate text to a maximum number of sentences for a concise blurb. */
@@ -56,52 +65,61 @@ function truncateToSentences(text: string, max = 3): string {
   return sentences.slice(0, max).join(" ").trim();
 }
 
-export default function ProductPage({ sceneData, locationName, areaDescription, bounds, onOpenViewer }: Props) {
+export default function ProductPage({ sceneData, locationName, areaDescription, bounds, onOpenViewer, serverImages, renderingOnServer }: Props) {
   const displayName = locationName || "Your Selected Area";
 
-  // Sequential render-to-image state
-  const [images, setImages] = useState<string[]>([]);
+  // Client-side fallback rendering state (used only when server render fails)
+  const [clientImages, setClientImages] = useState<string[]>([]);
   const [readyForNext, setReadyForNext] = useState(true);
+  const useServerImages = serverImages !== null;
 
-  const currentIndex = images.length;
+  // Determine which image source to use
+  const images = useServerImages ? serverImages : clientImages;
+  const heroImage = images[0] || null;
+  const galleryImages = images.slice(1);
+
+  // Client-side fallback: sequential render-to-image
+  const fallbackActive = !useServerImages && !renderingOnServer;
+  const currentIndex = clientImages.length;
   const totalJobs = RENDER_JOBS.length;
-  const isRendering = currentIndex < totalJobs;
-  const shouldRender = isRendering && readyForNext;
+  const isRendering = fallbackActive
+    ? currentIndex < totalJobs
+    : renderingOnServer;
+  const shouldRender = fallbackActive && currentIndex < totalJobs && readyForNext;
   const currentJob = shouldRender ? RENDER_JOBS[currentIndex] : null;
 
   const handleCapture = useCallback((dataUrl: string) => {
     setReadyForNext(false);
-    setImages((prev) => [...prev, dataUrl]);
+    setClientImages((prev) => [...prev, dataUrl]);
     // Small delay to let previous WebGL context dispose before next mount
     setTimeout(() => setReadyForNext(true), 150);
   }, []);
 
-  const heroImage = images[0] || null;
-  const galleryImages = images.slice(1);
-
   return (
     <div style={{ background: "#faf9f7" }}>
-      {/* Off-screen render Canvas — only ONE exists at any time */}
+      {/* Off-screen render Canvas — client fallback, only ONE exists at any time */}
       {currentJob && (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            top: 0,
-            width: 800,
-            height: 600,
-            opacity: 0.001,
-            pointerEvents: "none",
-            zIndex: -1,
-          }}
-        >
-          <CaptureRender
-            sceneData={sceneData}
-            cameraPosition={currentJob.position}
-            cameraTarget={currentJob.target}
-            onCapture={handleCapture}
-          />
-        </div>
+        <Suspense fallback={null}>
+          <div
+            style={{
+              position: "fixed",
+              left: 0,
+              top: 0,
+              width: 800,
+              height: 600,
+              opacity: 0.001,
+              pointerEvents: "none",
+              zIndex: -1,
+            }}
+          >
+            <LazyCaptureRender
+              sceneData={sceneData}
+              cameraPosition={currentJob.position}
+              cameraTarget={currentJob.target}
+              onCapture={handleCapture}
+            />
+          </div>
+        </Suspense>
       )}
 
       {/* ── Render progress bar ── */}
@@ -123,7 +141,9 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
               letterSpacing: 0.3,
             }}
           >
-            Preparing views... {currentIndex + 1} of {totalJobs}
+            {renderingOnServer
+              ? "Rendering on server..."
+              : `Preparing views... ${currentIndex + 1} of ${totalJobs}`}
           </div>
           <div
             style={{
@@ -138,10 +158,15 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
             <div
               style={{
                 height: "100%",
-                width: `${((currentIndex + 1) / totalJobs) * 100}%`,
+                width: renderingOnServer
+                  ? "100%"
+                  : `${((currentIndex + 1) / totalJobs) * 100}%`,
                 background: "#3b82f6",
                 borderRadius: 2,
                 transition: "width 0.3s ease",
+                ...(renderingOnServer
+                  ? { animation: "serverRenderPulse 1.5s ease-in-out infinite" }
+                  : {}),
               }}
             />
           </div>
@@ -188,7 +213,9 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
               <div style={{ textAlign: "center", color: "#999" }}>
                 <div style={spinnerSmallStyle} />
                 <div style={{ marginTop: 8, fontSize: 13 }}>
-                  Rendering hero view...
+                  {renderingOnServer
+                    ? "Rendering on server..."
+                    : "Rendering hero view..."}
                 </div>
               </div>
             </div>
@@ -645,10 +672,14 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
         </p>
       </footer>
 
-      {/* Spinner keyframe (shared) */}
+      {/* Spinner + pulse keyframes */}
       <style>{`
         @keyframes spinSmall {
           to { transform: rotate(360deg); }
+        }
+        @keyframes serverRenderPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
       `}</style>
     </div>

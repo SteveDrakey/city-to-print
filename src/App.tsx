@@ -1,10 +1,13 @@
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect, lazy, Suspense } from "react";
 import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
-import { ViewerOverlay } from "./ModelPreview";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
-import type { Bounds } from "./types";
+import type { Bounds, SceneData } from "./types";
+
+const LazyViewerOverlay = lazy(() =>
+  import("./ModelPreview").then((m) => ({ default: m.ViewerOverlay }))
+);
 
 export default function App() {
   const { loading, error, sceneData, fetchData, retryAttempt, maxRetries } =
@@ -13,11 +16,50 @@ export default function App() {
   const [areaDescription, setAreaDescription] = useState("");
   const [selectedBounds, setSelectedBounds] = useState<Bounds | null>(null);
   const [showViewer, setShowViewer] = useState(false);
+  const [serverImages, setServerImages] = useState<string[] | null>(null);
+  const [renderingOnServer, setRenderingOnServer] = useState(false);
   const productRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
 
   const fontFamily =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+  // When sceneData arrives, send it to the server for rendering
+  useEffect(() => {
+    if (!sceneData) {
+      setServerImages(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRenderingOnServer(true);
+    setServerImages(null);
+
+    fetch("/api/render-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sceneData }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.images) {
+          setServerImages(
+            data.images.map((img: { data: string }) => `data:image/jpeg;base64,${img.data}`)
+          );
+        }
+      })
+      .catch(() => {
+        // Server render failed — ProductPage will fall back to client-side rendering
+      })
+      .finally(() => {
+        if (!cancelled) setRenderingOnServer(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sceneData]);
 
   const handleBoundsSelected = useCallback(
     (bounds: Bounds, name?: string) => {
@@ -204,16 +246,20 @@ export default function App() {
             areaDescription={areaDescription}
             bounds={selectedBounds}
             onOpenViewer={() => setShowViewer(true)}
+            serverImages={serverImages}
+            renderingOnServer={renderingOnServer}
           />
         </div>
       )}
 
-      {/* ── Fullscreen 3D Viewer Overlay ── */}
+      {/* ── Fullscreen 3D Viewer Overlay (lazy-loaded) ── */}
       {showViewer && sceneData && (
-        <ViewerOverlay
-          sceneData={sceneData}
-          onClose={() => setShowViewer(false)}
-        />
+        <Suspense fallback={null}>
+          <LazyViewerOverlay
+            sceneData={sceneData}
+            onClose={() => setShowViewer(false)}
+          />
+        </Suspense>
       )}
     </div>
   );
