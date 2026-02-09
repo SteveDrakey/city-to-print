@@ -247,6 +247,7 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       zoom: initZoom,
       bearing: initBearing,
       maxZoom: 16,
+      maxPitch: 0,
       maxTileCacheSize: 64,
     });
 
