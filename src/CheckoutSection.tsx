@@ -36,6 +36,7 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
           bounds,
           locationName,
           shippingRegion: region,
+          mapUrl: window.location.href,
         }),
       });
 

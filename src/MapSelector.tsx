@@ -179,6 +179,19 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Read initial center/zoom from URL hash (e.g. #lat=52.52&lng=13.405&z=13)
+    let initCenter: [number, number] = [13.405, 52.52];
+    let initZoom = 13;
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const lat = parseFloat(params.get("lat") || "");
+      const lng = parseFloat(params.get("lng") || "");
+      const z = parseFloat(params.get("z") || "");
+      if (!isNaN(lat) && !isNaN(lng)) initCenter = [lng, lat];
+      if (!isNaN(z) && z >= 0 && z <= 16) initZoom = z;
+    }
+
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: {
@@ -202,8 +215,8 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
           },
         ],
       },
-      center: [13.405, 52.52],
-      zoom: 13,
+      center: initCenter,
+      zoom: initZoom,
       maxZoom: 16,
       maxTileCacheSize: 64,
     });
@@ -211,8 +224,17 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
     map.addControl(new maplibregl.NavigationControl(), "top-right");
     mapRef.current = map;
 
+    // Sync map position to URL hash so shared links restore the view
+    const updateHash = () => {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      const newHash = `lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&z=${z.toFixed(2)}`;
+      history.replaceState(null, "", `#${newHash}`);
+    };
+
     map.on("move", updateDimensions);
     map.on("load", updateDimensions);
+    map.on("moveend", updateHash);
 
     return () => {
       map.remove();
