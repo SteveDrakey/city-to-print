@@ -1,6 +1,7 @@
 import { useCallback, useState, useRef, useEffect, lazy, Suspense } from "react";
 import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
+import PaymentSuccess from "./PaymentSuccess";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
 import type { Bounds } from "./types";
@@ -16,8 +17,23 @@ export default function App() {
   const [areaDescription, setAreaDescription] = useState("");
   const [selectedBounds, setSelectedBounds] = useState<Bounds | null>(null);
   const [showViewer, setShowViewer] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("success") === "1";
+  });
   const productRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
+
+  // Clean the ?success=1 query param from the URL without a reload
+  useEffect(() => {
+    if (paymentSuccess) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [paymentSuccess]);
+
+  const handlePaymentSuccessDismiss = useCallback(() => {
+    setPaymentSuccess(false);
+  }, []);
 
   const fontFamily =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
@@ -93,6 +109,14 @@ export default function App() {
       productRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [sceneData]);
+
+  if (paymentSuccess) {
+    return (
+      <div style={{ fontFamily, minHeight: "100vh" }}>
+        <PaymentSuccess onContinue={handlePaymentSuccessDismiss} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily, minHeight: "100vh" }}>
