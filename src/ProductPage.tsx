@@ -485,8 +485,6 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
         >
           {[
             { value: sceneData.buildings.length, label: "Buildings" },
-            { value: sceneData.roads.length, label: "Road segments" },
-            { value: sceneData.water.length, label: "Water features" },
             {
               value: `${Math.round(sceneData.modelWidthMm)}x${Math.round(sceneData.modelDepthMm)}`,
               label: "Print size (mm)",

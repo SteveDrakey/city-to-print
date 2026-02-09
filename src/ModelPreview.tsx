@@ -548,10 +548,6 @@ export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
         <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
         <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
         {sceneData.buildings.length} buildings
-        <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
-        {sceneData.roads.length} roads
-        <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
-        {sceneData.water.length} water
       </div>
 
       {/* Drag hint */}
@@ -644,10 +640,6 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
         <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
         <span style={dividerStyle}>|</span>
         {sceneData.buildings.length} buildings
-        <span style={dividerStyle}>|</span>
-        {sceneData.roads.length} roads
-        <span style={dividerStyle}>|</span>
-        {sceneData.water.length} water
       </div>
 
       <div style={dragHintStyle}>
