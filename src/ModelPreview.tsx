@@ -58,7 +58,7 @@ function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
 
   if (!geometry) return null;
   return (
-    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 - 0.1, 0]}>
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 + 0.25, 0]}>
       <meshStandardMaterial color="#808080" roughness={0.85} metalness={0} />
     </mesh>
   );
