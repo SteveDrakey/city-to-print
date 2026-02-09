@@ -77,12 +77,12 @@ export default function App() {
     [fetchData]
   );
 
-  // Auto-scroll to loading animation as soon as generation starts
+  // Auto-scroll to loading animation when generation starts or retries update
   useEffect(() => {
     if (loading && loadingRef.current) {
       loadingRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [loading]);
+  }, [loading, retryAttempt]);
 
   // Auto-scroll to product page when scene data arrives
   useEffect(() => {

@@ -9,10 +9,13 @@ import {
 } from "./geometryUtils";
 
 /** Maximum number of retry attempts before falling back to mock data */
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 10;
 
-/** Base delay in ms — doubles each attempt (2s, 4s, 8s) */
+/** Base delay in ms — doubles each attempt, capped at 16s */
 const BASE_DELAY_MS = 2000;
+
+/** Cap retry delay so it doesn't become absurdly long */
+const MAX_DELAY_MS = 16000;
 
 /**
  * Build an Overpass QL query that fetches buildings and water features
@@ -421,7 +424,7 @@ export function useOverpassData() {
       // Wait before retries (not before the first attempt)
       if (attempt > 0) {
         setRetryAttempt(attempt);
-        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt - 1), MAX_DELAY_MS);
         await new Promise((r) => setTimeout(r, delay));
         if (controller.signal.aborted) return;
       }
