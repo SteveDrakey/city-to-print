@@ -67,6 +67,17 @@ export default async function handler(
 
     const origin = req.headers.origin || `https://${req.headers.host}`;
 
+    // bounds = [south, west, north, east]
+    const [south, west, north, east] = bounds;
+    const orderMetadata: Record<string, string> = {
+      locationName: locationName || "",
+      shippingRegion,
+      top_left_lat: String(north),
+      top_left_lng: String(west),
+      bottom_right_lat: String(south),
+      bottom_right_lng: String(east),
+    };
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -94,10 +105,9 @@ export default async function handler(
       shipping_address_collection: {
         allowed_countries: allowedCountries,
       },
-      metadata: {
-        bounds: JSON.stringify(bounds),
-        locationName: locationName || "",
-        shippingRegion,
+      metadata: orderMetadata,
+      payment_intent_data: {
+        metadata: orderMetadata,
       },
       success_url: `${origin}?success=1`,
       cancel_url: origin,
