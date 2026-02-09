@@ -186,17 +186,20 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Read initial center/zoom from URL hash (e.g. #lat=52.52&lng=13.405&z=13)
+    // Read initial center/zoom/bearing from URL hash (e.g. #lat=52.52&lng=13.405&z=13&b=45)
     let initCenter: [number, number] = [13.405, 52.52];
     let initZoom = 13;
+    let initBearing = 0;
     const hash = window.location.hash.slice(1);
     if (hash) {
       const params = new URLSearchParams(hash);
       const lat = parseFloat(params.get("lat") || "");
       const lng = parseFloat(params.get("lng") || "");
       const z = parseFloat(params.get("z") || "");
+      const b = parseFloat(params.get("b") || "");
       if (!isNaN(lat) && !isNaN(lng)) initCenter = [lng, lat];
       if (!isNaN(z) && z >= 0 && z <= 16) initZoom = z;
+      if (!isNaN(b)) initBearing = b;
     }
 
     const map = new maplibregl.Map({
@@ -224,6 +227,7 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       },
       center: initCenter,
       zoom: initZoom,
+      bearing: initBearing,
       maxZoom: 16,
       maxTileCacheSize: 64,
     });
@@ -235,7 +239,10 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
     const updateHash = () => {
       const c = map.getCenter();
       const z = map.getZoom();
-      const newHash = `lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&z=${z.toFixed(2)}`;
+      const b = map.getBearing();
+      let newHash = `lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&z=${z.toFixed(2)}`;
+      // Only include bearing when rotated away from north to keep URLs clean
+      if (Math.abs(b) > 0.1) newHash += `&b=${b.toFixed(1)}`;
       history.replaceState(null, "", `#${newHash}`);
     };
 
