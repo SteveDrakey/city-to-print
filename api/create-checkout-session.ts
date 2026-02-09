@@ -1,8 +1,6 @@
 import Stripe from "stripe";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 const PRODUCT_PRICE = 4000; // £40.00 in pence
 const SHIPPING_UK = 500; // £5.00
 const SHIPPING_INTL = 1500; // £15.00
@@ -43,6 +41,13 @@ export default async function handler(
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "Stripe API key is not configured" });
+  }
+
+  const stripe = new Stripe(apiKey);
 
   try {
     const { bounds, locationName, shippingRegion } = req.body as {
