@@ -1,10 +1,13 @@
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect, lazy, Suspense } from "react";
 import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
-import { ViewerOverlay } from "./ModelPreview";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
 import type { Bounds } from "./types";
+
+const LazyViewerOverlay = lazy(() =>
+  import("./ModelPreview").then((m) => ({ default: m.ViewerOverlay }))
+);
 
 export default function App() {
   const { loading, error, sceneData, fetchData, retryAttempt, maxRetries } =
@@ -208,12 +211,14 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Fullscreen 3D Viewer Overlay ── */}
+      {/* ── Fullscreen 3D Viewer Overlay (lazy-loaded on interaction only) ── */}
       {showViewer && sceneData && (
-        <ViewerOverlay
-          sceneData={sceneData}
-          onClose={() => setShowViewer(false)}
-        />
+        <Suspense fallback={null}>
+          <LazyViewerOverlay
+            sceneData={sceneData}
+            onClose={() => setShowViewer(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

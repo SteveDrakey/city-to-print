@@ -1,7 +1,11 @@
-import { useState, useCallback } from "react";
-import { CaptureRender } from "./ModelPreview";
+import { useState, useCallback, lazy, Suspense } from "react";
 import CheckoutSection from "./CheckoutSection";
 import type { SceneData, Bounds } from "./types";
+
+/** Lazy-load CaptureRender — keeps Three.js out of the main bundle until needed. */
+const LazyCaptureRender = lazy(() =>
+  import("./ModelPreview").then((m) => ({ default: m.CaptureRender }))
+);
 
 /** Camera angles for the product gallery shots. */
 const ANGLES: {
@@ -63,10 +67,13 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
   const [images, setImages] = useState<string[]>([]);
   const [readyForNext, setReadyForNext] = useState(true);
 
+  const heroImage = images[0] || null;
+  const galleryImages = images.slice(1);
+
   const currentIndex = images.length;
   const totalJobs = RENDER_JOBS.length;
   const isRendering = currentIndex < totalJobs;
-  const shouldRender = isRendering && readyForNext;
+  const shouldRender = currentIndex < totalJobs && readyForNext;
   const currentJob = shouldRender ? RENDER_JOBS[currentIndex] : null;
 
   const handleCapture = useCallback((dataUrl: string) => {
@@ -76,32 +83,31 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
     setTimeout(() => setReadyForNext(true), 150);
   }, []);
 
-  const heroImage = images[0] || null;
-  const galleryImages = images.slice(1);
-
   return (
     <div style={{ background: "#faf9f7" }}>
       {/* Off-screen render Canvas — only ONE exists at any time */}
       {currentJob && (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            top: 0,
-            width: 800,
-            height: 600,
-            opacity: 0.001,
-            pointerEvents: "none",
-            zIndex: -1,
-          }}
-        >
-          <CaptureRender
-            sceneData={sceneData}
-            cameraPosition={currentJob.position}
-            cameraTarget={currentJob.target}
-            onCapture={handleCapture}
-          />
-        </div>
+        <Suspense fallback={null}>
+          <div
+            style={{
+              position: "fixed",
+              left: 0,
+              top: 0,
+              width: 800,
+              height: 600,
+              opacity: 0.001,
+              pointerEvents: "none",
+              zIndex: -1,
+            }}
+          >
+            <LazyCaptureRender
+              sceneData={sceneData}
+              cameraPosition={currentJob.position}
+              cameraTarget={currentJob.target}
+              onCapture={handleCapture}
+            />
+          </div>
+        </Suspense>
       )}
 
       {/* ── Render progress bar ── */}
@@ -645,7 +651,7 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
         </p>
       </footer>
 
-      {/* Spinner keyframe (shared) */}
+      {/* Spinner + pulse keyframes */}
       <style>{`
         @keyframes spinSmall {
           to { transform: rotate(360deg); }
