@@ -25,7 +25,7 @@ export default async function handler(
       return res.status(400).json({ error: "Invalid sceneData" });
     }
 
-    const images = renderPreviewImages(sceneData);
+    const images = await renderPreviewImages(sceneData);
 
     return res.status(200).json({ images });
   } catch (err) {

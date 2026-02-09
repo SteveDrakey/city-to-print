@@ -2,7 +2,7 @@
   "functions": {
     "api/render-preview.ts": {
       "maxDuration": 60,
-      "includeFiles": "node_modules/gl/**"
+      "memory": 1024
     }
   }
 }
