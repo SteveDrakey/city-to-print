@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { CaptureRender } from "./ModelPreview";
 import CheckoutSection from "./CheckoutSection";
-import type { SceneData } from "./types";
+import type { SceneData, Bounds } from "./types";
 
 /** Camera angles for the product gallery shots. */
 const ANGLES: {
@@ -45,6 +45,7 @@ interface Props {
   sceneData: SceneData;
   locationName: string;
   areaDescription?: string;
+  bounds: Bounds | null;
   onOpenViewer: () => void;
 }
 
@@ -55,7 +56,7 @@ function truncateToSentences(text: string, max = 3): string {
   return sentences.slice(0, max).join(" ").trim();
 }
 
-export default function ProductPage({ sceneData, locationName, areaDescription, onOpenViewer }: Props) {
+export default function ProductPage({ sceneData, locationName, areaDescription, bounds, onOpenViewer }: Props) {
   const displayName = locationName || "Your Selected Area";
 
   // Sequential render-to-image state
@@ -576,7 +577,7 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       </div>
 
       {/* ── Checkout ── */}
-      <CheckoutSection heroImage={heroImage} locationName={displayName} />
+      <CheckoutSection heroImage={heroImage} locationName={displayName} bounds={bounds} />
 
       {/* Spinner keyframe (shared) */}
       <style>{`
