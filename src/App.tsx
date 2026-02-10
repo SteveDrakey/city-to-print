@@ -3,6 +3,7 @@ import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
 import PaymentSuccess from "./PaymentSuccess";
 import ReviewCarousel from "./ReviewCarousel";
+import SiteFooter from "./SiteFooter";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
 import type { Bounds } from "./types";
@@ -203,6 +204,9 @@ export default function App() {
       {!loading && (
         <ReviewCarousel compact={!!sceneData} />
       )}
+
+      {/* ── Site Footer (always visible) ── */}
+      {!loading && <SiteFooter />}
 
       {/* ── Fullscreen 3D Viewer Overlay (lazy-loaded on interaction only) ── */}
       {showViewer && sceneData && (

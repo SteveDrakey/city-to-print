@@ -238,10 +238,11 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Read initial center/zoom/bearing from URL hash, or pick a random showcase city
+    // Read initial center/zoom/bearing from URL hash, or pick a random showcase city.
+    // Default to MIN_ZOOM_FOR_GENERATE so users see the full area before zooming in.
     const randomCity = SHOWCASE_CITIES[Math.floor(Math.random() * SHOWCASE_CITIES.length)];
     let initCenter: [number, number] = [randomCity.lng, randomCity.lat];
-    let initZoom = randomCity.zoom;
+    let initZoom = MIN_ZOOM_FOR_GENERATE;
     let initBearing = randomCity.bearing;
     const hash = window.location.hash.slice(1);
     if (hash) {

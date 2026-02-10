@@ -71,6 +71,16 @@ export default function PaymentSuccess({ sessionId, onContinue }: Props) {
           >
             Back to City&nbsp;to&nbsp;Print
           </button>
+
+          <div className="flex justify-center gap-3 mt-6 text-[11px] text-gray-400">
+            <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors no-underline">
+              Shipping &amp; Returns
+            </a>
+            <span className="text-gray-300">|</span>
+            <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors no-underline">
+              Privacy Policy
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -165,6 +175,16 @@ export default function PaymentSuccess({ sessionId, onContinue }: Props) {
             Contact us on Etsy
           </a>
         </p>
+
+        <div className="flex justify-center gap-3 mt-6 text-[11px] text-gray-400">
+          <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors no-underline">
+            Shipping &amp; Returns
+          </a>
+          <span className="text-gray-300">|</span>
+          <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors no-underline">
+            Privacy Policy
+          </a>
+        </div>
       </div>
     </div>
   );
