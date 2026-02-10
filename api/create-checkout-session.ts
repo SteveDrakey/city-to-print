@@ -8,30 +8,8 @@ const SHIPPING_INTL = 1500; // £15.00
 const UK_COUNTRIES: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] =
   ["GB"];
 
-const INTL_COUNTRIES: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] =
-  [
-    "US",
-    "CA",
-    "AU",
-    "NZ",
-    "DE",
-    "FR",
-    "ES",
-    "IT",
-    "NL",
-    "BE",
-    "AT",
-    "CH",
-    "SE",
-    "NO",
-    "DK",
-    "FI",
-    "IE",
-    "PT",
-    "JP",
-    "SG",
-    "HK",
-  ];
+const US_COUNTRIES: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] =
+  ["US"];
 
 export default async function handler(
   req: VercelRequest,
@@ -53,7 +31,7 @@ export default async function handler(
     const { bounds, locationName, shippingRegion, bearing, mapUrl } = req.body as {
       bounds: [number, number, number, number] | null;
       locationName: string;
-      shippingRegion: "uk" | "international";
+      shippingRegion: "uk" | "usa";
       bearing?: number;
       mapUrl?: string;
     };
@@ -64,8 +42,8 @@ export default async function handler(
 
     const isUk = shippingRegion === "uk";
     const shippingAmount = isUk ? SHIPPING_UK : SHIPPING_INTL;
-    const shippingLabel = isUk ? "UK Delivery" : "International Delivery";
-    const allowedCountries = isUk ? UK_COUNTRIES : INTL_COUNTRIES;
+    const shippingLabel = isUk ? "UK Delivery" : "USA Delivery";
+    const allowedCountries = isUk ? UK_COUNTRIES : US_COUNTRIES;
 
     const origin = req.headers.origin || `https://${req.headers.host}`;
 
@@ -113,7 +91,7 @@ export default async function handler(
       payment_intent_data: {
         metadata: orderMetadata,
       },
-      success_url: `${origin}?success=1`,
+      success_url: `${origin}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: origin,
     });
 

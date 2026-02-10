@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Bounds } from "./types";
 
-type ShippingRegion = "uk" | "international";
+type ShippingRegion = "uk" | "usa";
 
 interface Props {
   heroImage: string | null;
@@ -12,7 +12,7 @@ interface Props {
 const PRODUCT_PRICE = 40;
 const SHIPPING: Record<ShippingRegion, { label: string; price: number }> = {
   uk: { label: "United Kingdom", price: 5 },
-  international: { label: "International (USA etc.)", price: 15 },
+  usa: { label: "United States", price: 15 },
 };
 
 export default function CheckoutSection({ heroImage, locationName, bounds }: Props) {
@@ -175,6 +175,15 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
             Secure checkout powered by Stripe.
             <br />
             Apple Pay, Google Pay, and cards accepted.
+          </p>
+          <p className="text-center mt-2 text-[11px] text-gray-400">
+            <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors">
+              Shipping &amp; Returns
+            </a>
+            {" · "}
+            <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors">
+              Privacy
+            </a>
           </p>
         </div>
       </div>
