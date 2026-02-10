@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { Bounds, SceneData } from "./types";
+import type { Bounds, Polygon, SceneData } from "./types";
 import {
   buildingHeightMm,
   classifyRoad,
@@ -659,14 +659,27 @@ function parseElements(
 
     if (kind === "water") {
       const outerWays: OsmWay[] = [];
+      const innerWays: OsmWay[] = [];
       for (const member of rel.members) {
-        if (member.type !== "way" || member.role !== "outer") continue;
+        if (member.type !== "way") continue;
         const way = ways.get(member.ref);
-        if (way) outerWays.push(way);
+        if (!way) continue;
+        if (member.role === "outer") outerWays.push(way);
+        else if (member.role === "inner") innerWays.push(way);
       }
 
-      const rings = assembleRings(outerWays, nodeMap);
-      for (const ring of rings) {
+      // Assemble inner rings (islands/holes) and project them
+      const innerRings = assembleRings(innerWays, nodeMap);
+      const projectedHoles: Polygon[] = [];
+      for (const ring of innerRings) {
+        const holePoly = projectPolygon(
+          ring, bounds, scaleMMperM, modelWidthMm, modelDepthMm, bearing
+        );
+        if (holePoly.length >= 3) projectedHoles.push(holePoly);
+      }
+
+      const outerRings = assembleRings(outerWays, nodeMap);
+      for (const ring of outerRings) {
         const poly = projectPolygon(
           ring,
           bounds,
@@ -676,7 +689,10 @@ function parseElements(
           bearing
         );
         if (poly.length < 3) continue;
-        water.push({ polygon: poly });
+        water.push({
+          polygon: poly,
+          holes: projectedHoles.length > 0 ? projectedHoles : undefined,
+        });
       }
     } else {
       for (const member of rel.members) {

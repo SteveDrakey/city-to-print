@@ -15,6 +15,8 @@ export interface BuildingData {
 
 export interface WaterData {
   polygon: Polygon;
+  /** Inner rings (holes) to subtract — e.g. islands within a river */
+  holes?: Polygon[];
 }
 
 export interface RoadData {

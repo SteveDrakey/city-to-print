@@ -96,6 +96,18 @@ function MergedWater({ water }: { water: SceneData["water"] }) {
     const geos: THREE.ExtrudeGeometry[] = [];
     for (const w of water) {
       const shape = polygonToShape(w.polygon);
+      if (w.holes) {
+        for (const hole of w.holes) {
+          const holePath = new THREE.Path();
+          for (let i = 0; i < hole.length; i++) {
+            const [x, y] = hole[i];
+            if (i === 0) holePath.moveTo(x, y);
+            else holePath.lineTo(x, y);
+          }
+          holePath.closePath();
+          shape.holes.push(holePath);
+        }
+      }
       geos.push(new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false }));
     }
     const merged = mergeGeometries(geos, false);
