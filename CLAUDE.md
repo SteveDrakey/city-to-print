@@ -24,6 +24,8 @@ src/
   useOverpassData.ts  — Hook that fetches and parses Overpass API data
   geometryUtils.ts    — Coordinate projection, polygon clipping, scaling math
   types.ts            — Shared TypeScript interfaces
+  ReviewCarousel.tsx    — Auto-scrolling customer review carousel (compact/full modes)
+  index.css             — Tailwind CSS entry point
 ```
 
 ## Key conventions
@@ -31,7 +33,7 @@ src/
 - TypeScript strict mode, all source in `src/`
 - Functional React components with hooks throughout
 - 3D rendering via React Three Fiber (not raw Three.js)
-- No CSS framework — inline styles
+- Tailwind CSS for new components; legacy components still use inline styles
 - No state management library — local state and prop drilling
 - External APIs: Overpass (OSM data), Nominatim (search), OpenStreetMap tiles
 

@@ -2,6 +2,7 @@ import { useCallback, useState, useRef, useEffect, lazy, Suspense } from "react"
 import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
 import PaymentSuccess from "./PaymentSuccess";
+import ReviewCarousel from "./ReviewCarousel";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
 import type { Bounds } from "./types";
@@ -233,6 +234,11 @@ export default function App() {
             onOpenViewer={() => setShowViewer(true)}
           />
         </div>
+      )}
+
+      {/* ── Review Carousel ── */}
+      {!loading && (
+        <ReviewCarousel compact={!!sceneData} />
       )}
 
       {/* ── Fullscreen 3D Viewer Overlay (lazy-loaded on interaction only) ── */}
