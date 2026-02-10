@@ -40,6 +40,10 @@ export default function App() {
 
   const handleBoundsSelected = useCallback(
     (bounds: Bounds, name?: string, bearing?: number) => {
+      // Close the 3D viewer before starting a new generation so we never
+      // have two WebGL contexts (ViewerOverlay + CaptureRender) alive at once.
+      setShowViewer(false);
+
       // Start Overpass data fetch immediately
       fetchData(bounds, bearing ?? 0);
       setSelectedBounds(bounds);
