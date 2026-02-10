@@ -33,10 +33,8 @@ function overpassQuery(bounds: Bounds): string {
   way["building"](${bbox});
   relation["building"](${bbox});
   way["natural"="water"](${bbox});
-  way["waterway"](${bbox});
   way["landuse"="reservoir"](${bbox});
   relation["natural"="water"](${bbox});
-  relation["waterway"](${bbox});
   relation["landuse"="reservoir"](${bbox});
   way["natural"="bay"](${bbox});
   relation["natural"="bay"](${bbox});
