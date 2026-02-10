@@ -1,10 +1,28 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useCallback } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { SceneData, Polygon, RoadData } from "./types";
 import { BASE_THICKNESS_MM } from "./geometryUtils";
+
+/**
+ * Aggressively dispose the WebGL renderer when the Canvas unmounts.
+ * React Three Fiber does *some* cleanup, but on mobile the browser
+ * may not reclaim GPU memory quickly enough — calling dispose(),
+ * forceContextLoss(), and removing the drawing buffer helps avoid
+ * the "too many WebGL contexts" crash.
+ */
+function DisposeOnUnmount() {
+  const { gl } = useThree();
+  useEffect(() => {
+    return () => {
+      gl.dispose();
+      gl.forceContextLoss();
+    };
+  }, [gl]);
+  return null;
+}
 
 // ---- Helpers to turn 2D polygon outlines into three.js geometry ----
 
@@ -34,6 +52,10 @@ function MergedBuildings({ buildings }: { buildings: SceneData["buildings"] }) {
     return merged;
   }, [buildings]);
 
+  useEffect(() => {
+    return () => { geometry?.dispose(); };
+  }, [geometry]);
+
   if (!geometry) return null;
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2, 0]} castShadow>
@@ -56,6 +78,10 @@ function MergedRoads({ roads }: { roads: SceneData["roads"] }) {
     return merged;
   }, [roads]);
 
+  useEffect(() => {
+    return () => { geometry?.dispose(); };
+  }, [geometry]);
+
   if (!geometry) return null;
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} position={[0, BASE_THICKNESS_MM / 2 + 0.25, 0]}>
@@ -76,6 +102,10 @@ function MergedWater({ water }: { water: SceneData["water"] }) {
     for (const g of geos) g.dispose();
     return merged;
   }, [water]);
+
+  useEffect(() => {
+    return () => { geometry?.dispose(); };
+  }, [geometry]);
 
   if (!geometry) return null;
   return (
@@ -149,6 +179,10 @@ function Table() {
       bevelSegments: 2,
     });
   }, []);
+
+  useEffect(() => {
+    return () => { legGeometry.dispose(); };
+  }, [legGeometry]);
 
   return (
     <group position={[0, -(tableThick / 2), 0]}>
@@ -372,6 +406,7 @@ export function StaticAngleRender({
       }}
       frameloop="demand"
     >
+      <DisposeOnUnmount />
       <StaticCamera position={cameraPosition} target={cameraTarget} />
       <CityScene sceneData={sceneData} />
     </Canvas>
@@ -431,6 +466,7 @@ export function CaptureRender({
         background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
       }}
     >
+      <DisposeOnUnmount />
       <StaticCamera position={cameraPosition} target={cameraTarget} />
       <CityScene sceneData={sceneData} />
       <FrameCapture onCapture={onCapture} />
@@ -515,6 +551,7 @@ export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
           background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
         }}
       >
+        <DisposeOnUnmount />
         <CityScene sceneData={sceneData} />
         <OrbitControls
           enablePan={false}
@@ -622,6 +659,7 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         style={{ background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)" }}
       >
+        <DisposeOnUnmount />
         <CityScene sceneData={sceneData} />
         <OrbitControls
           enablePan={false}

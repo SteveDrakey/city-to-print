@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import CheckoutSection from "./CheckoutSection";
 import type { SceneData, Bounds } from "./types";
 
@@ -67,6 +67,17 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
   const [images, setImages] = useState<string[]>([]);
   const [readyForNext, setReadyForNext] = useState(true);
 
+  // Reset gallery when sceneData changes (user generated a new city).
+  // Also revoke old blob URLs to free memory from previous data-URL images.
+  const prevSceneRef = useRef(sceneData);
+  useEffect(() => {
+    if (prevSceneRef.current !== sceneData) {
+      prevSceneRef.current = sceneData;
+      setImages([]);
+      setReadyForNext(true);
+    }
+  }, [sceneData]);
+
   const heroImage = images[0] || null;
   const galleryImages = images.slice(1);
 
@@ -79,8 +90,9 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
   const handleCapture = useCallback((dataUrl: string) => {
     setReadyForNext(false);
     setImages((prev) => [...prev, dataUrl]);
-    // Small delay to let previous WebGL context dispose before next mount
-    setTimeout(() => setReadyForNext(true), 150);
+    // Delay between unmounting the current Canvas and mounting the next one
+    // so the browser can reclaim GPU memory. 400ms works reliably on mobile.
+    setTimeout(() => setReadyForNext(true), 400);
   }, []);
 
   return (
