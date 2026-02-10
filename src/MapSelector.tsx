@@ -22,6 +22,20 @@ interface Props {
 /** Minimum zoom level required to generate a preview / place an order. */
 const MIN_ZOOM_FOR_GENERATE = Number(import.meta.env.VITE_MIN_ZOOM_FOR_GENERATE) || 12;
 
+/** Cities with dense, interesting geometry that look great as 3D prints. */
+const SHOWCASE_CITIES: { lng: number; lat: number; zoom: number; bearing: number }[] = [
+  { lng: -0.0876, lat: 51.5074, zoom: 15.5, bearing: -15 },   // City of London — dense skyscrapers + Tower Bridge
+  { lng: 2.3490, lat: 48.8530, zoom: 15.5, bearing: 10 },     // Paris — Notre-Dame & Île de la Cité
+  { lng: -73.9857, lat: 40.7484, zoom: 15.5, bearing: -29 },   // Manhattan Midtown — Empire State area
+  { lng: 139.7670, lat: 35.6812, zoom: 15.5, bearing: 0 },     // Tokyo — Shibuya crossing area
+  { lng: -3.1883, lat: 55.9533, zoom: 15.5, bearing: 5 },      // Edinburgh Old Town — castle to Royal Mile
+  { lng: 12.4964, lat: 41.9028, zoom: 15.5, bearing: -20 },    // Rome — Colosseum & Forum
+  { lng: -0.1181, lat: 51.5033, zoom: 15.5, bearing: 0 },      // Westminster — Big Ben, Parliament, London Eye
+  { lng: -2.2426, lat: 53.4808, zoom: 15.5, bearing: 10 },     // Manchester city centre — dense Northern Quarter
+  { lng: 55.2708, lat: 25.1972, zoom: 15.5, bearing: -30 },    // Dubai Marina — tall towers along the water
+  { lng: -1.8904, lat: 52.4862, zoom: 15.5, bearing: 0 },      // Birmingham city centre — canal basin area
+];
+
 /**
  * Interactive map with viewport-frame area selection.
  *
@@ -204,10 +218,11 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Read initial center/zoom/bearing from URL hash (e.g. #lat=52.52&lng=13.405&z=13&b=45)
-    let initCenter: [number, number] = [13.405, 52.52];
-    let initZoom = 13;
-    let initBearing = 0;
+    // Read initial center/zoom/bearing from URL hash, or pick a random showcase city
+    const randomCity = SHOWCASE_CITIES[Math.floor(Math.random() * SHOWCASE_CITIES.length)];
+    let initCenter: [number, number] = [randomCity.lng, randomCity.lat];
+    let initZoom = randomCity.zoom;
+    let initBearing = randomCity.bearing;
     const hash = window.location.hash.slice(1);
     if (hash) {
       const params = new URLSearchParams(hash);
