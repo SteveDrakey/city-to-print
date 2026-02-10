@@ -157,13 +157,14 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Loading animation ── */}
+      {/* ── Loading animation + reviews while building ── */}
       {loading && (
         <div ref={loadingRef}>
           <CityLoadingAnimation
             retryAttempt={retryAttempt}
             maxRetries={maxRetries}
           />
+          <ReviewCarousel compact loading />
         </div>
       )}
 

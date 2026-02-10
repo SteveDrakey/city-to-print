@@ -79,9 +79,13 @@ function Stars({ count }: { count: number }) {
 
 interface Props {
   compact: boolean;
+  /** When true, renders a slim dark variant that sits below the loading animation. */
+  loading?: boolean;
 }
 
-export default function ReviewCarousel({ compact }: Props) {
+export default function ReviewCarousel({ compact, loading }: Props) {
+  // Loading mode overrides compact — it's always slim + dark
+  const isSlim = compact || loading;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -112,28 +116,32 @@ export default function ReviewCarousel({ compact }: Props) {
   return (
     <section
       className={`w-full overflow-hidden transition-all duration-500 ${
-        compact
-          ? "bg-gray-50 py-6"
-          : "bg-gradient-to-b from-slate-900 to-slate-800 py-16"
+        loading
+          ? "bg-[#2a3f6a] pt-4 pb-6"
+          : compact
+            ? "bg-gray-50 py-6"
+            : "bg-gradient-to-b from-slate-900 to-slate-800 py-16"
       }`}
     >
       {/* Header */}
-      <div className={`text-center mb-6 px-6 ${compact ? "" : "mb-10"}`}>
-        {!compact && (
+      <div className={`text-center px-6 ${isSlim ? "mb-4" : "mb-10"}`}>
+        {!isSlim && (
           <p className="text-xs font-semibold tracking-[0.2em] uppercase text-blue-400 mb-3">
             Loved by customers
           </p>
         )}
         <h2
           className={`font-bold transition-all duration-500 ${
-            compact
-              ? "text-base text-gray-700"
-              : "text-2xl sm:text-3xl text-white"
+            loading
+              ? "text-sm text-white/60"
+              : compact
+                ? "text-base text-gray-700"
+                : "text-2xl sm:text-3xl text-white"
           }`}
         >
-          {compact ? "What our customers say" : "Etsy Star Seller \u2022 4.8\u2605 average"}
+          {isSlim ? "While you wait — what our customers say" : "Etsy Star Seller \u2022 4.8\u2605 average"}
         </h2>
-        {!compact && (
+        {!isSlim && (
           <p className="text-slate-400 mt-2 text-sm max-w-md mx-auto">
             Real reviews from our Etsy shop — printed with care in Todmorden, UK
           </p>
@@ -154,15 +162,17 @@ export default function ReviewCarousel({ compact }: Props) {
           <div
             key={i}
             className={`flex-shrink-0 rounded-xl overflow-hidden transition-all duration-500 ${
-              compact
-                ? "w-64 bg-white border border-gray-200 shadow-sm"
-                : "w-80 bg-white/10 backdrop-blur-sm border border-white/10"
+              loading
+                ? "w-56 bg-white/[0.07] border border-white/10"
+                : compact
+                  ? "w-64 bg-white border border-gray-200 shadow-sm"
+                  : "w-80 bg-white/10 backdrop-blur-sm border border-white/10"
             }`}
           >
             {/* Product photo placeholder */}
             <div
               className={`relative bg-gradient-to-br ${review.gradient} ${
-                compact ? "h-28" : "h-44"
+                loading ? "h-20" : compact ? "h-28" : "h-44"
               } flex items-center justify-center transition-all duration-500`}
             >
               {/* Faux city model silhouette */}
@@ -192,21 +202,23 @@ export default function ReviewCarousel({ compact }: Props) {
             </div>
 
             {/* Review content */}
-            <div className={compact ? "p-3" : "p-5"}>
+            <div className={isSlim ? "p-3" : "p-5"}>
               <Stars count={review.stars} />
               <p
                 className={`mt-2 leading-relaxed ${
-                  compact
-                    ? "text-xs text-gray-600 line-clamp-2"
-                    : "text-sm text-white/80 line-clamp-4"
+                  loading
+                    ? "text-xs text-white/60 line-clamp-2"
+                    : compact
+                      ? "text-xs text-gray-600 line-clamp-2"
+                      : "text-sm text-white/80 line-clamp-4"
                 }`}
               >
                 &ldquo;{review.text}&rdquo;
               </p>
-              <div className={`mt-3 flex items-center gap-2 ${compact ? "mt-2" : ""}`}>
+              <div className={`flex items-center gap-2 ${isSlim ? "mt-2" : "mt-3"}`}>
                 <div
                   className={`rounded-full flex items-center justify-center font-bold text-white ${
-                    compact
+                    isSlim
                       ? "w-6 h-6 text-[10px] bg-blue-500"
                       : "w-8 h-8 text-xs bg-blue-500"
                   }`}
@@ -216,18 +228,22 @@ export default function ReviewCarousel({ compact }: Props) {
                 <div>
                   <p
                     className={`font-semibold ${
-                      compact
-                        ? "text-[11px] text-gray-800"
-                        : "text-sm text-white"
+                      loading
+                        ? "text-[11px] text-white/80"
+                        : compact
+                          ? "text-[11px] text-gray-800"
+                          : "text-sm text-white"
                     }`}
                   >
                     {review.name}
                   </p>
                   <p
                     className={
-                      compact
-                        ? "text-[10px] text-gray-400"
-                        : "text-xs text-white/50"
+                      loading
+                        ? "text-[10px] text-white/40"
+                        : compact
+                          ? "text-[10px] text-gray-400"
+                          : "text-xs text-white/50"
                     }
                   >
                     {review.location}
@@ -240,7 +256,7 @@ export default function ReviewCarousel({ compact }: Props) {
       </div>
 
       {/* Etsy CTA — only in expanded mode */}
-      {!compact && (
+      {!isSlim && (
         <div className="text-center mt-10 px-6">
           <a
             href="https://www.etsy.com/uk/shop/Drakey3DPrints"
