@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Bounds } from "./types";
 
-type ShippingRegion = "uk" | "international";
+type ShippingRegion = "uk" | "usa";
 
 interface Props {
   heroImage: string | null;
@@ -12,7 +12,7 @@ interface Props {
 const PRODUCT_PRICE = 40;
 const SHIPPING: Record<ShippingRegion, { label: string; price: number }> = {
   uk: { label: "United Kingdom", price: 5 },
-  international: { label: "International (USA etc.)", price: 15 },
+  usa: { label: "United States", price: 15 },
 };
 
 export default function CheckoutSection({ heroImage, locationName, bounds }: Props) {
