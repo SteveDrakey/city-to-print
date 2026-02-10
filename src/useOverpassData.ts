@@ -39,8 +39,8 @@ function overpassQuery(bounds: Bounds): string {
   way["natural"="bay"](${bbox});
   relation["natural"="bay"](${bbox});
   way["natural"="coastline"](${bbox});
-  way["highway"](${bbox});
-  way["railway"~"^(rail|light_rail|subway|tram|narrow_gauge|monorail)$"](${bbox});
+  way["highway"]["tunnel"!="yes"]["tunnel"!="building_passage"]["covered"!="yes"](${bbox});
+  way["railway"~"^(rail|light_rail|subway|tram|narrow_gauge|monorail)$"]["tunnel"!="yes"](${bbox});
 );
 out body;
 >;
