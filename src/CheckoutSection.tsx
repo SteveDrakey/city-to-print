@@ -59,164 +59,76 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
   };
 
   return (
-    <div
-      style={{
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "0 24px 64px",
-      }}
-    >
+    <div className="max-w-[480px] mx-auto px-6 pb-16">
       {/* ── Order Summary Card ── */}
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e8e5e0",
-          borderRadius: 16,
-          overflow: "hidden",
-        }}
-      >
+      <div className="bg-white border border-[#e8e5e0] rounded-2xl overflow-hidden">
         {/* Header */}
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: "1px solid #f0ede8",
-          }}
-        >
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: 2,
-              textTransform: "uppercase",
-              color: "#6b7280",
-              margin: 0,
-            }}
-          >
+        <div className="px-6 py-5 border-b border-[#f0ede8]">
+          <p className="text-[13px] font-semibold tracking-[2px] uppercase text-gray-500 m-0">
             Order Summary
           </p>
         </div>
 
         {/* Product row */}
-        <div
-          style={{
-            padding: "20px 24px",
-            display: "flex",
-            gap: 16,
-            alignItems: "center",
-            borderBottom: "1px solid #f0ede8",
-          }}
-        >
+        <div className="px-6 py-5 flex gap-4 items-center border-b border-[#f0ede8]">
           {heroImage && (
             <div
+              className="w-[72px] h-[72px] rounded-[10px] overflow-hidden shrink-0"
               style={{
-                width: 72,
-                height: 72,
-                borderRadius: 10,
-                overflow: "hidden",
-                flexShrink: 0,
-                background:
-                  "linear-gradient(165deg, #e8e2d8 0%, #cfc5b7 100%)",
+                background: "linear-gradient(165deg, #e8e2d8 0%, #cfc5b7 100%)",
               }}
             >
               <img
                 src={heroImage}
                 alt="Model preview"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                }}
+                className="w-full h-full object-cover block"
               />
             </div>
           )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: 15,
-                color: "#1a1a2e",
-                marginBottom: 4,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-[15px] text-[#1a1a2e] mb-1 whitespace-nowrap overflow-hidden text-ellipsis">
               {locationName || "Custom City Model"}
             </div>
-            <div style={{ fontSize: 13, color: "#888" }}>
+            <div className="text-[13px] text-gray-400">
               3D printed PLA &middot; 20cm x 20cm
             </div>
           </div>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: 16,
-              color: "#1a1a2e",
-              flexShrink: 0,
-            }}
-          >
+          <div className="font-bold text-base text-[#1a1a2e] shrink-0">
             &pound;{PRODUCT_PRICE.toFixed(2)}
           </div>
         </div>
 
         {/* Shipping selection */}
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0ede8" }}>
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#555",
-              margin: "0 0 12px 0",
-            }}
-          >
+        <div className="px-6 py-5 border-b border-[#f0ede8]">
+          <p className="text-[13px] font-semibold text-gray-600 mb-3">
             Shipping destination
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="flex flex-col gap-2">
             {(Object.keys(SHIPPING) as ShippingRegion[]).map((key) => {
               const opt = SHIPPING[key];
               const selected = region === key;
               return (
                 <label
                   key={key}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "12px 16px",
-                    borderRadius: 10,
-                    border: selected
-                      ? "2px solid #3b82f6"
-                      : "1px solid #e8e5e0",
-                    background: selected ? "#f0f7ff" : "#faf9f7",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-[10px] cursor-pointer transition-all duration-150 ${
+                    selected
+                      ? "border-2 border-blue-500 bg-blue-50"
+                      : "border border-[#e8e5e0] bg-[#faf9f7]"
+                  }`}
                 >
                   <input
                     type="radio"
                     name="shipping"
                     checked={selected}
                     onChange={() => setRegion(key)}
-                    style={{ accentColor: "#3b82f6" }}
+                    className="accent-blue-500"
                   />
                   <span
-                    style={{
-                      flex: 1,
-                      fontSize: 14,
-                      fontWeight: selected ? 600 : 400,
-                      color: "#1a1a2e",
-                    }}
+                    className={`flex-1 text-sm text-[#1a1a2e] ${selected ? "font-semibold" : ""}`}
                   >
                     {opt.label}
                   </span>
-                  <span
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "#555",
-                    }}
-                  >
+                  <span className="text-sm font-semibold text-gray-600">
                     &pound;{opt.price.toFixed(2)}
                   </span>
                 </label>
@@ -226,89 +138,40 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
         </div>
 
         {/* Price breakdown */}
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0ede8" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: 8,
-              fontSize: 14,
-              color: "#555",
-            }}
-          >
+        <div className="px-6 py-5 border-b border-[#f0ede8]">
+          <div className="flex justify-between mb-2 text-sm text-gray-600">
             <span>Model</span>
             <span>&pound;{PRODUCT_PRICE.toFixed(2)}</span>
           </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: 12,
-              fontSize: 14,
-              color: "#555",
-            }}
-          >
+          <div className="flex justify-between mb-3 text-sm text-gray-600">
             <span>Shipping ({shipping.label})</span>
             <span>&pound;{shipping.price.toFixed(2)}</span>
           </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              paddingTop: 12,
-              borderTop: "1px solid #f0ede8",
-              fontSize: 18,
-              fontWeight: 700,
-              color: "#1a1a2e",
-            }}
-          >
+          <div className="flex justify-between pt-3 border-t border-[#f0ede8] text-lg font-bold text-[#1a1a2e]">
             <span>Total</span>
             <span>&pound;{total.toFixed(2)}</span>
           </div>
         </div>
 
         {/* Checkout button */}
-        <div style={{ padding: "20px 24px" }}>
+        <div className="px-6 py-5">
           <button
             onClick={handleCheckout}
             disabled={!bounds || loading}
-            style={{
-              width: "100%",
-              padding: "16px 24px",
-              background: bounds && !loading ? "#1a1a2e" : "#94a3b8",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              cursor: bounds && !loading ? "pointer" : "not-allowed",
-              fontSize: 16,
-              fontWeight: 600,
-              letterSpacing: 0.3,
-              transition: "background 0.15s ease",
-            }}
+            className={`w-full py-4 px-6 text-white border-none rounded-[10px] text-base font-semibold tracking-wide transition-colors duration-150 ${
+              bounds && !loading
+                ? "bg-[#1a1a2e] cursor-pointer hover:bg-[#2a2a3e]"
+                : "bg-slate-400 cursor-not-allowed"
+            }`}
           >
-            {loading ? "Redirecting to checkout…" : `Pay \u00A3${total.toFixed(2)}`}
+            {loading ? "Redirecting to checkout\u2026" : `Pay \u00A3${total.toFixed(2)}`}
           </button>
           {error && (
-            <p
-              style={{
-                textAlign: "center",
-                marginTop: 10,
-                fontSize: 12,
-                color: "#dc2626",
-              }}
-            >
+            <p className="text-center mt-2.5 text-xs text-red-600">
               {error}
             </p>
           )}
-          <p
-            style={{
-              textAlign: "center",
-              marginTop: 12,
-              fontSize: 12,
-              color: "#aaa",
-              lineHeight: 1.6,
-            }}
-          >
+          <p className="text-center mt-3 text-xs text-gray-400 leading-relaxed">
             Secure checkout powered by Stripe.
             <br />
             Apple Pay, Google Pay, and cards accepted.

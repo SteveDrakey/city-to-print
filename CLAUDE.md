@@ -33,7 +33,7 @@ src/
 - TypeScript strict mode, all source in `src/`
 - Functional React components with hooks throughout
 - 3D rendering via React Three Fiber (not raw Three.js)
-- Tailwind CSS for new components; legacy components still use inline styles
+- Tailwind CSS for styling; inline `style` kept only for dynamic values and Canvas/Three.js gradients
 - No state management library — local state and prop drilling
 - External APIs: Overpass (OSM data), Nominatim (search), OpenStreetMap tiles
 

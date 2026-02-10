@@ -452,50 +452,20 @@ export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
   }, []);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "#000",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
       {/* Close bar */}
       <div
+        className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center px-5 py-3"
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 10,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "12px 20px",
           background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
         }}
       >
-        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500 }}>
+        <span className="text-white/70 text-[13px] font-medium">
           Interactive 3D View
         </span>
         <button
           onClick={onClose}
-          style={{
-            background: "rgba(255,255,255,0.15)",
-            backdropFilter: "blur(8px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            color: "#fff",
-            width: 40,
-            height: 40,
-            borderRadius: "50%",
-            cursor: "pointer",
-            fontSize: 18,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className="bg-white/15 backdrop-blur-lg border border-white/20 text-white w-10 h-10 rounded-full cursor-pointer text-lg flex items-center justify-center"
         >
           ✕
         </button>
@@ -530,42 +500,14 @@ export function ViewerOverlay({ sceneData, onClose }: ViewerOverlayProps) {
       </Canvas>
 
       {/* Info badge */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 16,
-          left: 16,
-          background: "rgba(0,0,0,0.7)",
-          backdropFilter: "blur(8px)",
-          color: "#fff",
-          padding: "8px 16px",
-          borderRadius: 8,
-          fontSize: 12,
-          letterSpacing: 0.3,
-          zIndex: 10,
-        }}
-      >
-        <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
-        <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
+      <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-lg text-white px-4 py-2 rounded-lg text-xs tracking-wide z-10">
+        <span className="font-semibold mr-2">200mm Print</span>
+        <span className="mx-1.5 opacity-40">|</span>
         {sceneData.buildings.length} buildings
       </div>
 
       {/* Drag hint */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 16,
-          right: 16,
-          background: "rgba(0,0,0,0.45)",
-          backdropFilter: "blur(8px)",
-          color: "rgba(255,255,255,0.8)",
-          padding: "6px 12px",
-          borderRadius: 6,
-          fontSize: 11,
-          letterSpacing: 0.2,
-          zIndex: 10,
-        }}
-      >
+      <div className="absolute bottom-4 right-4 bg-black/45 backdrop-blur-lg text-white/80 px-3 py-1.5 rounded-md text-[11px] tracking-wide z-10">
         {("ontouchstart" in window || navigator.maxTouchPoints > 0)
           ? "Pinch to zoom, drag to rotate"
           : "Scroll to zoom, drag to rotate"}
@@ -585,10 +527,15 @@ interface Props {
 export default function ModelPreview({ sceneData, loading, error }: Props) {
   if (loading) {
     return (
-      <div style={overlayStyle}>
-        <div style={{ textAlign: "center" }}>
-          <div style={spinnerStyle} />
-          <div style={{ marginTop: 16, fontSize: 14, color: "#666" }}>
+      <div
+        className="w-full h-full flex items-center justify-center text-gray-700"
+        style={{
+          background: "linear-gradient(165deg, #f5f0ea 0%, #ebe5db 100%)",
+        }}
+      >
+        <div className="text-center">
+          <div className="w-8 h-8 border-[3px] border-gray-300 border-t-gray-600 rounded-full mx-auto animate-[spin_0.8s_linear_infinite]" />
+          <div className="mt-4 text-sm text-gray-500">
             Fetching map data...
           </div>
         </div>
@@ -598,10 +545,15 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
 
   if (!sceneData) {
     return (
-      <div style={overlayStyle}>
-        <div style={{ textAlign: "center", maxWidth: 280 }}>
-          <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>&#9634;</div>
-          <div style={{ color: "#888", fontSize: 13, lineHeight: 1.5 }}>
+      <div
+        className="w-full h-full flex items-center justify-center text-gray-700"
+        style={{
+          background: "linear-gradient(165deg, #f5f0ea 0%, #ebe5db 100%)",
+        }}
+      >
+        <div className="text-center max-w-[280px]">
+          <div className="text-[32px] mb-3 opacity-30">&#9634;</div>
+          <div className="text-gray-500 text-[13px] leading-normal">
             Select an area on the map to preview your 3D city print.
           </div>
         </div>
@@ -610,7 +562,7 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
   }
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+    <div className="w-full h-full relative">
       <Canvas
         camera={{
           position: [250, 180, 300],
@@ -636,86 +588,23 @@ export default function ModelPreview({ sceneData, loading, error }: Props) {
         />
       </Canvas>
 
-      <div style={infoBadgeStyle}>
-        <span style={{ fontWeight: 600, marginRight: 8 }}>200mm Print</span>
-        <span style={dividerStyle}>|</span>
+      <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-lg text-white px-4 py-2 rounded-lg text-xs tracking-wide">
+        <span className="font-semibold mr-2">200mm Print</span>
+        <span className="mx-1.5 opacity-40">|</span>
         {sceneData.buildings.length} buildings
       </div>
 
-      <div style={dragHintStyle}>
+      <div className="absolute top-4 right-4 bg-black/45 backdrop-blur-lg text-white/80 px-3 py-1.5 rounded-md text-[11px] tracking-wide">
         {("ontouchstart" in window || navigator.maxTouchPoints > 0)
           ? "Touch to rotate"
           : "Drag to rotate"}
       </div>
 
       {error && (
-        <div style={errorBadgeStyle}>
+        <div className="absolute top-3 left-3 bg-red-500/85 backdrop-blur-lg text-white px-3.5 py-2 rounded-lg text-xs">
           Overpass error: {error} — showing mock data
         </div>
       )}
     </div>
   );
 }
-
-const overlayStyle: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "linear-gradient(165deg, #f5f0ea 0%, #ebe5db 100%)",
-  color: "#333",
-};
-
-const spinnerStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  border: "3px solid #ddd",
-  borderTopColor: "#555",
-  borderRadius: "50%",
-  margin: "0 auto",
-  animation: "spin 0.8s linear infinite",
-};
-
-const infoBadgeStyle: React.CSSProperties = {
-  position: "absolute",
-  bottom: 16,
-  left: 16,
-  background: "rgba(0,0,0,0.7)",
-  backdropFilter: "blur(8px)",
-  color: "#fff",
-  padding: "8px 16px",
-  borderRadius: 8,
-  fontSize: 12,
-  letterSpacing: 0.3,
-};
-
-const dividerStyle: React.CSSProperties = {
-  margin: "0 6px",
-  opacity: 0.4,
-};
-
-const dragHintStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 16,
-  right: 16,
-  background: "rgba(0,0,0,0.45)",
-  backdropFilter: "blur(8px)",
-  color: "rgba(255,255,255,0.8)",
-  padding: "6px 12px",
-  borderRadius: 6,
-  fontSize: 11,
-  letterSpacing: 0.2,
-};
-
-const errorBadgeStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 12,
-  left: 12,
-  background: "rgba(239,68,68,0.85)",
-  backdropFilter: "blur(8px)",
-  color: "#fff",
-  padding: "8px 14px",
-  borderRadius: 8,
-  fontSize: 12,
-};

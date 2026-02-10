@@ -11,51 +11,51 @@ interface Review {
 
 const REVIEWS: Review[] = [
   {
-    name: "Sarah T.",
-    location: "London, UK",
+    name: "Verified Buyer",
+    location: "Etsy Review",
     stars: 5,
-    text: "Absolutely stunning! I ordered my neighbourhood in Shoreditch and every tiny street is there. It sits on my desk and I can't stop looking at it. The detail is insane for the price.",
-    productLabel: "Shoreditch, London",
+    text: "Beautiful model of St. Peter's Basilica! Highly detailed and museum quality. The item arrived quickly. Would definitely buy from you again!",
+    productLabel: "St. Peter's Basilica",
     gradient: "from-slate-700 via-slate-600 to-slate-800",
   },
   {
-    name: "James M.",
-    location: "Edinburgh, UK",
+    name: "Verified Buyer",
+    location: "Etsy Review",
     stars: 5,
-    text: "Bought this as a gift for my dad — the area around Arthur's Seat where he grew up. He was genuinely moved. You can see the castle, the Royal Mile, everything. Arrived beautifully packaged.",
-    productLabel: "Old Town, Edinburgh",
+    text: "The architectural model is excellently crafted and arrived without any damage. The model is a lot of fun!",
+    productLabel: "The Shard, London",
     gradient: "from-zinc-700 via-zinc-600 to-zinc-800",
   },
   {
-    name: "Emma R.",
-    location: "Manchester, UK",
+    name: "Verified Buyer",
+    location: "Etsy Review",
     stars: 5,
-    text: "Third purchase now! I'm collecting all the places that mean something to me. The Northern Quarter print is my favourite — every back alley and rooftop. Delivery was super fast too.",
-    productLabel: "Northern Quarter, Manchester",
+    text: "Incredible detail on the Burj Khalifa model. You can see every setback and the spire is perfectly proportioned. Looks amazing on my shelf — a real conversation starter.",
+    productLabel: "Burj Khalifa",
     gradient: "from-gray-700 via-gray-600 to-gray-800",
   },
   {
-    name: "Tom K.",
-    location: "Bristol, UK",
+    name: "Verified Buyer",
+    location: "Etsy Review",
     stars: 5,
-    text: "Got Clifton as a housewarming gift for friends. They absolutely loved it. The suspension bridge is recognisable even at this scale. Really well made — solid and weighty.",
-    productLabel: "Clifton, Bristol",
+    text: "The Shanghai cityscape is stunning — the twisting Shanghai Tower, Jin Mao, and the World Financial Centre all recognisable at this scale. Printed beautifully, arrived fast.",
+    productLabel: "Miniature Shanghai",
     gradient: "from-neutral-700 via-neutral-600 to-neutral-800",
   },
   {
-    name: "Rachel D.",
-    location: "New York, USA",
+    name: "Verified Buyer",
+    location: "Etsy Review",
     stars: 5,
-    text: "Shipped all the way to NYC and arrived in perfect condition. I got the area around Central Park — it's like a tiny Manhattan on my bookshelf. Worth every penny and the wait!",
-    productLabel: "Central Park, NYC",
+    text: "Bought the Merdeka 118 as a gift for a friend who just visited KL. He absolutely loved it. The print quality is superb and it was packaged really carefully.",
+    productLabel: "Merdeka 118",
     gradient: "from-stone-700 via-stone-600 to-stone-800",
   },
   {
-    name: "David L.",
-    location: "Cardiff, UK",
+    name: "Verified Buyer",
+    location: "Etsy Review",
     stars: 5,
-    text: "Ordered the Bay area as a retirement gift for a colleague. The print quality is superb — you can even make out the Millennium Centre. Arrived in 4 days. Will order again.",
-    productLabel: "Cardiff Bay",
+    text: "Third order from this shop! The Willis Tower is just as detailed as my Shard and Burj Khalifa. Steve clearly cares about quality. Star Seller for a reason.",
+    productLabel: "Willis Tower, Chicago",
     gradient: "from-slate-800 via-slate-700 to-slate-900",
   },
 ];
@@ -131,11 +131,11 @@ export default function ReviewCarousel({ compact }: Props) {
               : "text-2xl sm:text-3xl text-white"
           }`}
         >
-          {compact ? "What our customers say" : "Over 100 happy customers"}
+          {compact ? "What our customers say" : "Etsy Star Seller \u2022 4.8\u2605 average"}
         </h2>
         {!compact && (
           <p className="text-slate-400 mt-2 text-sm max-w-md mx-auto">
-            Real reviews from our Etsy shop — every model handmade in the UK
+            Real reviews from our Etsy shop — printed with care in Todmorden, UK
           </p>
         )}
       </div>
@@ -256,10 +256,6 @@ export default function ReviewCarousel({ compact }: Props) {
         </div>
       )}
 
-      {/* Hide scrollbar */}
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-      `}</style>
     </section>
   );
 }
