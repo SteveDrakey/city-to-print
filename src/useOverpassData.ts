@@ -286,7 +286,10 @@ function buildSeaPolygons(
 
   const [south, west, north, east] = bounds;
 
-  // 1. Chain coastline segments by matching endpoints
+  // 1. Chain coastline segments by matching endpoints.
+  //    IMPORTANT: Only join in the forward direction (tail→head or
+  //    their-tail→our-head). Never reverse a segment — coastline
+  //    direction encodes which side is land vs sea.
   const remaining = coastlineWays.map((w) => [...w.nodes]);
   const chains: number[][] = [];
 
@@ -302,22 +305,14 @@ function buildSeaPolygons(
       for (let i = 0; i < remaining.length; i++) {
         const seg = remaining[i];
         if (tail === seg[0]) {
+          // Our tail → their head: append forward
           chain = chain.concat(seg.slice(1));
           remaining.splice(i, 1);
           changed = true;
           break;
         } else if (head === seg[seg.length - 1]) {
+          // Their tail → our head: prepend forward
           chain = seg.concat(chain.slice(1));
-          remaining.splice(i, 1);
-          changed = true;
-          break;
-        } else if (tail === seg[seg.length - 1]) {
-          chain = chain.concat(seg.slice().reverse().slice(1));
-          remaining.splice(i, 1);
-          changed = true;
-          break;
-        } else if (head === seg[0]) {
-          chain = seg.slice().reverse().concat(chain.slice(1));
           remaining.splice(i, 1);
           changed = true;
           break;
@@ -364,11 +359,18 @@ function buildSeaPolygons(
       continue;
     }
 
-    // 3. Clip the open chain to the bounding box and close via box edges
-    // Keep only points inside the bbox, and compute entry/exit points
-    const clippedPoints: [number, number][] = [];
-    let entryPoint: [number, number] | null = null;
-    let exitPoint: [number, number] | null = null;
+    // 3. Split the chain into segments that cross the bbox.
+    //    A single chain may enter and exit multiple times, producing
+    //    multiple independent sea polygons. Each segment has an entry
+    //    and exit point on the box boundary.
+    type Segment = {
+      points: [number, number][];
+      entry: [number, number];
+      exit: [number, number];
+    };
+    const segments: Segment[] = [];
+    let curPoints: [number, number][] = [];
+    let curEntry: [number, number] | null = null;
 
     for (let i = 0; i < coords.length; i++) {
       const [lat, lon] = coords[i];
@@ -379,70 +381,62 @@ function buildSeaPolygons(
         const pInside = pLat >= south && pLat <= north && pLon >= west && pLon <= east;
 
         if (!pInside && inside) {
-          // Entering the bbox
+          // Entering the bbox — start a new segment
           const inter = segmentBoxIntersection(
             pLon, pLat, lon, lat, west, south, east, north
           );
           if (inter) {
-            entryPoint = entryPoint ?? [inter[1], inter[0]]; // [lat, lon]
-            clippedPoints.push([inter[1], inter[0]]);
+            curEntry = [inter[1], inter[0]];
+            curPoints = [curEntry];
+          } else {
+            curEntry = [lat, lon];
+            curPoints = [];
           }
         } else if (pInside && !inside) {
-          // Exiting the bbox
+          // Exiting the bbox — finalize current segment
           const inter = segmentBoxIntersection(
             pLon, pLat, lon, lat, west, south, east, north
           );
-          if (inter) {
-            exitPoint = [inter[1], inter[0]]; // [lat, lon]
-            clippedPoints.push([inter[1], inter[0]]);
+          if (inter && curEntry) {
+            const exit: [number, number] = [inter[1], inter[0]];
+            curPoints.push(exit);
+            if (curPoints.length >= 2) {
+              segments.push({ points: [...curPoints], entry: curEntry, exit });
+            }
           }
-        } else if (!pInside && !inside) {
-          // Both outside — but the segment might cross the box
-          // For simplicity, skip this case (segments fully outside)
-          // In practice coastline segments are dense enough that
-          // two consecutive points outside is rare in the selection area
+          curPoints = [];
+          curEntry = null;
         }
       }
 
       if (inside) {
-        if (clippedPoints.length === 0 && i === 0) {
-          entryPoint = [lat, lon];
-        }
-        clippedPoints.push([lat, lon]);
+        curPoints.push([lat, lon]);
       }
     }
+    // Note: if the chain ends inside the bbox (no final exit), we
+    // discard that trailing segment since we can't close it properly
+    // without a boundary exit point.
 
-    if (clippedPoints.length < 2) continue;
+    // 4. For each segment with entry/exit on the boundary, close
+    //    by walking clockwise around the bbox from exit back to entry.
+    //    (Sea is to the RIGHT of coastline direction = clockwise.)
+    for (const seg of segments) {
+      const exitAngle = boxAngle(seg.exit[1], seg.exit[0], west, south, east, north);
+      const entryAngle = boxAngle(seg.entry[1], seg.entry[0], west, south, east, north);
 
-    // Set exit point to last clipped point if not already set
-    if (!exitPoint) exitPoint = clippedPoints[clippedPoints.length - 1];
-    if (!entryPoint) entryPoint = clippedPoints[0];
+      const corners = boxCornersBetween(exitAngle, entryAngle, west, south, east, north);
 
-    // 4. Close the polygon by walking clockwise around the bbox
-    //    from the exit point back to the entry point.
-    //    (Sea is to the RIGHT of coastline direction = clockwise in bbox)
-    const exitAngle = boxAngle(exitPoint[1], exitPoint[0], west, south, east, north);
-    const entryAngle = boxAngle(entryPoint[1], entryPoint[0], west, south, east, north);
+      const seaPoly: [number, number][] = [...seg.points];
+      for (const [lon, lat] of corners) {
+        seaPoly.push([lat, lon]);
+      }
+      seaPoly.push(seg.points[0]);
 
-    const corners = boxCornersBetween(exitAngle, entryAngle, west, south, east, north);
-
-    // Build the sea polygon: clipped coastline + box corners back to start
-    const seaPoly: [number, number][] = [...clippedPoints];
-    for (const [lon, lat] of corners) {
-      seaPoly.push([lat, lon]);
-    }
-    // Close it
-    seaPoly.push(clippedPoints[0]);
-
-    if (seaPoly.length >= 3) {
-      seaPolygons.push(seaPoly);
+      if (seaPoly.length >= 3) {
+        seaPolygons.push(seaPoly);
+      }
     }
   }
-
-  // 5. If no coastline chains intersected the bbox but we have coastlines
-  //    nearby, the entire bbox might be sea. Check if any coastline is
-  //    south/east (meaning we're in the sea). This is a heuristic.
-  //    Skip this for now — the main case is covered above.
 
   return seaPolygons;
 }
