@@ -96,22 +96,11 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
   }, []);
 
   return (
-    <div style={{ background: "#faf9f7" }}>
+    <div className="bg-[#faf9f7]">
       {/* Off-screen render Canvas — only ONE exists at any time */}
       {currentJob && (
         <Suspense fallback={null}>
-          <div
-            style={{
-              position: "fixed",
-              left: 0,
-              top: 0,
-              width: 1200,
-              height: 900,
-              opacity: 0.001,
-              pointerEvents: "none",
-              zIndex: -1,
-            }}
-          >
+          <div className="fixed left-0 top-0 w-[1200px] h-[900px] opacity-[0.001] pointer-events-none -z-10">
             <LazyCaptureRender
               sceneData={sceneData}
               cameraPosition={currentJob.position}
@@ -125,42 +114,18 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       {/* ── Render progress bar ── */}
       {isRendering && (
         <div
+          className="px-6 py-3.5 text-center border-b border-[#2a3f6a]"
           style={{
-            padding: "14px 24px",
-            textAlign: "center",
             background: "linear-gradient(180deg, #0f1729 0%, #1a2744 100%)",
-            borderBottom: "1px solid #2a3f6a",
           }}
         >
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#e2e8f0",
-              marginBottom: 10,
-              letterSpacing: 0.3,
-            }}
-          >
+          <div className="text-[13px] font-semibold text-slate-200 mb-2.5 tracking-wide">
             Preparing views... {currentIndex + 1} of {totalJobs}
           </div>
-          <div
-            style={{
-              height: 4,
-              background: "rgba(255,255,255,0.1)",
-              borderRadius: 2,
-              maxWidth: 300,
-              margin: "0 auto",
-              overflow: "hidden",
-            }}
-          >
+          <div className="h-1 bg-white/10 rounded-sm max-w-[300px] mx-auto overflow-hidden">
             <div
-              style={{
-                height: "100%",
-                width: `${((currentIndex + 1) / totalJobs) * 100}%`,
-                background: "#3b82f6",
-                borderRadius: 2,
-                transition: "width 0.3s ease",
-              }}
+              className="h-full bg-blue-500 rounded-sm transition-[width] duration-300 ease-out"
+              style={{ width: `${((currentIndex + 1) / totalJobs) * 100}%` }}
             />
           </div>
         </div>
@@ -168,17 +133,12 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
 
       {/* ── Hero Section ── */}
       <div
-        style={{
-          position: "relative",
-          width: "100%",
-          cursor: heroImage ? "pointer" : "default",
-        }}
+        className={`relative w-full ${heroImage ? "cursor-pointer" : ""}`}
         onClick={heroImage ? onOpenViewer : undefined}
       >
         <div
+          className="w-full aspect-[16/10]"
           style={{
-            width: "100%",
-            aspectRatio: "16 / 10",
             background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
           }}
         >
@@ -186,26 +146,13 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
             <img
               src={heroImage}
               alt={`${displayName} - hero view`}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
+              className="w-full h-full object-cover block"
             />
           ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div style={{ textAlign: "center", color: "#999" }}>
-                <div style={spinnerSmallStyle} />
-                <div style={{ marginTop: 8, fontSize: 13 }}>
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center text-gray-400">
+                <div className="w-6 h-6 border-[2.5px] border-gray-300 border-t-gray-500 rounded-full mx-auto animate-[spinSmall_0.8s_linear_infinite]" />
+                <div className="mt-2 text-[13px]">
                   Rendering hero view...
                 </div>
               </div>
@@ -214,24 +161,7 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
         </div>
         {/* Tap-to-view overlay hint */}
         {heroImage && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: 20,
-              right: 20,
-              background: "rgba(0,0,0,0.6)",
-              backdropFilter: "blur(8px)",
-              color: "#fff",
-              padding: "10px 18px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 500,
-              letterSpacing: 0.3,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
+          <div className="absolute bottom-5 right-5 bg-black/60 backdrop-blur-lg text-white px-[18px] py-2.5 rounded-lg text-[13px] font-medium tracking-wide flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
               <circle cx="12" cy="12" r="3" />
@@ -242,31 +172,15 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       </div>
 
       {/* ── Title + Intro ── */}
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 0" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: "#6b7280", marginBottom: 12 }}>
+      <div className="max-w-[720px] mx-auto px-6 pt-12">
+        <div className="text-center mb-12">
+          <p className="text-[13px] font-semibold tracking-[2px] uppercase text-gray-500 mb-3">
             Custom 3D City Model
           </p>
-          <h1
-            style={{
-              fontSize: "clamp(28px, 5vw, 44px)",
-              fontWeight: 700,
-              color: "#1a1a2e",
-              lineHeight: 1.15,
-              marginBottom: 16,
-            }}
-          >
+          <h1 className="text-[clamp(28px,5vw,44px)] font-bold text-[#1a1a2e] leading-[1.15] mb-4">
             {displayName}
           </h1>
-          <p
-            style={{
-              fontSize: "clamp(15px, 2.5vw, 18px)",
-              color: "#555",
-              lineHeight: 1.6,
-              maxWidth: 520,
-              margin: "0 auto",
-            }}
-          >
+          <p className="text-[clamp(15px,2.5vw,18px)] text-gray-600 leading-relaxed max-w-[520px] mx-auto">
             Every street, every building, every waterway — captured from real
             OpenStreetMap data and sculpted into a one-of-a-kind architectural model
             you can hold in your hands.
@@ -275,59 +189,21 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
 
         {/* ── About the area (from Wikipedia) ── */}
         {areaDescription && (
-          <div
-            style={{
-              background: "#f5f3f0",
-              borderRadius: 12,
-              padding: "24px 28px",
-              marginBottom: 48,
-              borderLeft: "3px solid #3b82f6",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: 1.5,
-                textTransform: "uppercase",
-                color: "#6b7280",
-                marginBottom: 12,
-              }}
-            >
+          <div className="bg-[#f5f3f0] rounded-xl px-7 py-6 mb-12 border-l-[3px] border-blue-500">
+            <p className="text-[13px] font-semibold tracking-[1.5px] uppercase text-gray-500 mb-3">
               About {displayName}
             </p>
-            <p
-              style={{
-                fontSize: 15,
-                color: "#444",
-                lineHeight: 1.7,
-                margin: 0,
-              }}
-            >
+            <p className="text-[15px] text-gray-700 leading-[1.7] m-0">
               {truncateToSentences(areaDescription)}
             </p>
-            <p
-              style={{
-                fontSize: 11,
-                color: "#aaa",
-                marginTop: 10,
-                marginBottom: 0,
-              }}
-            >
+            <p className="text-[11px] text-gray-400 mt-2.5 mb-0">
               Source: Wikipedia
             </p>
           </div>
         )}
 
         {/* ── Spec Cards ── */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 16,
-            marginBottom: 56,
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-14">
           {[
             {
               icon: (
@@ -365,19 +241,13 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
           ].map((card, i) => (
             <div
               key={i}
-              style={{
-                background: "#fff",
-                border: "1px solid #e8e5e0",
-                borderRadius: 12,
-                padding: "24px 20px",
-                textAlign: "center",
-              }}
+              className="bg-white border border-[#e8e5e0] rounded-xl px-5 py-6 text-center"
             >
-              <div style={{ marginBottom: 12 }}>{card.icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#1a1a2e", marginBottom: 6 }}>
+              <div className="mb-3">{card.icon}</div>
+              <div className="font-bold text-base text-[#1a1a2e] mb-1.5">
                 {card.title}
               </div>
-              <div style={{ fontSize: 13, color: "#777", lineHeight: 1.5 }}>
+              <div className="text-[13px] text-gray-500 leading-normal">
                 {card.desc}
               </div>
             </div>
@@ -386,42 +256,22 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       </div>
 
       {/* ── Gallery: multi-angle views (rendered as images, not live Canvases) ── */}
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 56px" }}>
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: 2,
-            textTransform: "uppercase",
-            color: "#6b7280",
-            marginBottom: 20,
-            textAlign: "center",
-          }}
-        >
+      <div className="max-w-[900px] mx-auto px-6 pb-14">
+        <p className="text-[13px] font-semibold tracking-[2px] uppercase text-gray-500 mb-5 text-center">
           From every angle
         </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: 16,
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
           {ANGLES.map((angle, i) => (
             <div
               key={i}
               onClick={galleryImages[i] ? onOpenViewer : undefined}
-              style={{
-                borderRadius: 12,
-                overflow: "hidden",
-                cursor: galleryImages[i] ? "pointer" : "default",
-                position: "relative",
-                border: "1px solid #e8e5e0",
-              }}
+              className={`rounded-xl overflow-hidden relative border border-[#e8e5e0] ${
+                galleryImages[i] ? "cursor-pointer" : ""
+              }`}
             >
               <div
+                className="aspect-[4/3]"
                 style={{
-                  aspectRatio: "4 / 3",
                   background: "linear-gradient(165deg, #e8e2d8 0%, #d9d0c3 40%, #cfc5b7 100%)",
                 }}
               >
@@ -429,41 +279,20 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
                   <img
                     src={galleryImages[i]}
                     alt={angle.label}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
+                    className="w-full h-full object-cover block"
                   />
                 ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div style={{ textAlign: "center", color: "#b0a89e" }}>
-                      <div style={spinnerSmallStyle} />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center text-[#b0a89e]">
+                      <div className="w-6 h-6 border-[2.5px] border-gray-300 border-t-gray-500 rounded-full mx-auto animate-[spinSmall_0.8s_linear_infinite]" />
                     </div>
                   </div>
                 )}
               </div>
               <div
+                className="absolute bottom-0 left-0 right-0 pt-6 pb-2.5 px-3.5 text-white text-xs font-medium tracking-wide"
                 style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: "24px 14px 10px",
                   background: "linear-gradient(to top, rgba(0,0,0,0.45), transparent)",
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  letterSpacing: 0.3,
                 }}
               >
                 {angle.label}
@@ -474,34 +303,11 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       </div>
 
       {/* ── Model stats ── */}
-      <div
-        style={{
-          background: "#1a1a2e",
-          padding: "48px 24px",
-          color: "#fff",
-          textAlign: "center",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: 2,
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.5)",
-            marginBottom: 28,
-          }}
-        >
+      <div className="bg-[#1a1a2e] px-6 py-12 text-white text-center">
+        <p className="text-[13px] font-semibold tracking-[2px] uppercase text-white/50 mb-7">
           What's inside your model
         </p>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "clamp(24px, 6vw, 64px)",
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="flex justify-center gap-[clamp(24px,6vw,64px)] flex-wrap">
           {[
             { value: sceneData.buildings.length, label: "Buildings" },
             {
@@ -509,24 +315,11 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
               label: "Print size (mm)",
             },
           ].map((stat, i) => (
-            <div key={i} style={{ minWidth: 80 }}>
-              <div
-                style={{
-                  fontSize: "clamp(28px, 4vw, 40px)",
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                }}
-              >
+            <div key={i} className="min-w-[80px]">
+              <div className="text-[clamp(28px,4vw,40px)] font-bold leading-tight">
                 {stat.value}
               </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.5)",
-                  marginTop: 4,
-                  letterSpacing: 0.3,
-                }}
-              >
+              <div className="text-xs text-white/50 mt-1 tracking-wide">
                 {stat.label}
               </div>
             </div>
@@ -535,27 +328,19 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       </div>
 
       {/* ── Description copy ── */}
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "56px 24px" }}>
-        <h2
-          style={{
-            fontSize: "clamp(22px, 3.5vw, 32px)",
-            fontWeight: 700,
-            color: "#1a1a2e",
-            marginBottom: 20,
-            lineHeight: 1.2,
-          }}
-        >
+      <div className="max-w-[640px] mx-auto px-6 py-14">
+        <h2 className="text-[clamp(22px,3.5vw,32px)] font-bold text-[#1a1a2e] mb-5 leading-tight">
           A piece of the city, made real
         </h2>
-        <div style={{ fontSize: 15, color: "#555", lineHeight: 1.8 }}>
-          <p style={{ marginBottom: 16 }}>
+        <div className="text-[15px] text-gray-600 leading-[1.8]">
+          <p className="mb-4">
             This isn't a generic souvenir. It's <em>your</em> selection — the
             exact neighbourhood, the precise streets, the buildings you chose.
             We pull the geometry straight from OpenStreetMap, scale it down to
             a 200mm base plate, and print it layer by layer in premium PLA
             filament.
           </p>
-          <p style={{ marginBottom: 16 }}>
+          <p className="mb-4">
             The raised buildings cast real shadows. The roads sit recessed into
             the base. Water features are subtly inset. The whole model sits in
             a clean dark frame, ready to display. No painting required, no
@@ -570,25 +355,10 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       </div>
 
       {/* ── 3D Viewer CTA ── */}
-      <div
-        style={{
-          textAlign: "center",
-          padding: "0 24px 48px",
-        }}
-      >
+      <div className="text-center px-6 pb-12">
         <button
           onClick={onOpenViewer}
-          style={{
-            padding: "16px 40px",
-            background: "#3b82f6",
-            color: "#fff",
-            border: "none",
-            borderRadius: 10,
-            cursor: "pointer",
-            fontSize: 16,
-            fontWeight: 600,
-            letterSpacing: 0.3,
-          }}
+          className="px-10 py-4 bg-blue-500 text-white border-none rounded-[10px] cursor-pointer text-base font-semibold tracking-wide hover:bg-blue-600 transition-colors"
         >
           View your model in 3D
         </button>
@@ -598,32 +368,11 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
       <CheckoutSection heroImage={heroImage} locationName={displayName} bounds={bounds} />
 
       {/* ── Footer: Drakey 3D Prints ── */}
-      <footer
-        style={{
-          background: "#0f1729",
-          padding: "40px 24px",
-          textAlign: "center",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: "#fff",
-            margin: "0 0 8px",
-            letterSpacing: 0.3,
-          }}
-        >
+      <footer className="bg-[#0f1729] px-6 py-10 text-center">
+        <p className="text-lg font-bold text-white mb-2 tracking-wide">
           Drakey 3D Prints
         </p>
-        <p
-          style={{
-            fontSize: 14,
-            color: "rgba(255,255,255,0.55)",
-            margin: "0 0 20px",
-            lineHeight: 1.6,
-          }}
-        >
+        <p className="text-sm text-white/55 mb-5 leading-relaxed">
           Handmade 3D-printed city models,{" "}
           crafted with care in the UK.
         </p>
@@ -631,54 +380,17 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
           href="https://www.etsy.com/uk/shop/Drakey3DPrints"
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "12px 28px",
-            background: "#f56400",
-            color: "#fff",
-            fontSize: 14,
-            fontWeight: 600,
-            borderRadius: 8,
-            textDecoration: "none",
-            letterSpacing: 0.3,
-            transition: "background 0.15s ease",
-          }}
+          className="inline-flex items-center gap-2 px-7 py-3 bg-[#f56400] hover:bg-[#e05a00] text-white text-sm font-semibold rounded-lg no-underline tracking-wide transition-colors"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M9.16 4.23C9.16 4.23 8 4.72 8 6.59c0 1.42.52 2.23.52 2.23H5.88c-.98 0-1.88.86-1.88 1.89v1.78c0 .44.36.8.8.8h1.6v5.42c0 1.03.84 1.87 1.87 1.87h7.46c1.03 0 1.87-.84 1.87-1.87v-5.42h1.6c.44 0 .8-.36.8-.8v-1.78c0-1.03-.86-1.89-1.88-1.89h-2.64s.52-.81.52-2.23c0-1.87-1.16-2.36-1.16-2.36S13.56 3 12 3s-2.84 1.23-2.84 1.23zM12 5.5c.71 0 1.5.5 1.5 1.09 0 .78-.5 1.72-.5 1.72h-2s-.5-.94-.5-1.72C10.5 6 11.29 5.5 12 5.5z" />
           </svg>
           Visit our Etsy Shop
         </a>
-        <p
-          style={{
-            fontSize: 12,
-            color: "rgba(255,255,255,0.3)",
-            marginTop: 24,
-            marginBottom: 0,
-          }}
-        >
+        <p className="text-xs text-white/30 mt-6">
           &copy; {new Date().getFullYear()} Drakey 3D Prints. All rights reserved.
         </p>
       </footer>
-
-      {/* Spinner + pulse keyframes */}
-      <style>{`
-        @keyframes spinSmall {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
-
-const spinnerSmallStyle: React.CSSProperties = {
-  width: 24,
-  height: 24,
-  border: "2.5px solid #ddd",
-  borderTopColor: "#999",
-  borderRadius: "50%",
-  margin: "0 auto",
-  animation: "spinSmall 0.8s linear infinite",
-};

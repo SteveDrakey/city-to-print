@@ -2,6 +2,7 @@ import { useCallback, useState, useRef, useEffect, lazy, Suspense } from "react"
 import MapSelector from "./MapSelector";
 import ProductPage from "./ProductPage";
 import PaymentSuccess from "./PaymentSuccess";
+import ReviewCarousel from "./ReviewCarousel";
 import { useOverpassData } from "./useOverpassData";
 import CityLoadingAnimation from "./CityLoadingAnimation";
 import type { Bounds } from "./types";
@@ -34,9 +35,6 @@ export default function App() {
   const handlePaymentSuccessDismiss = useCallback(() => {
     setPaymentSuccess(false);
   }, []);
-
-  const fontFamily =
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
   const handleBoundsSelected = useCallback(
     (bounds: Bounds, name?: string, bearing?: number) => {
@@ -116,87 +114,46 @@ export default function App() {
 
   if (paymentSuccess) {
     return (
-      <div style={{ fontFamily, minHeight: "100vh" }}>
+      <div className="font-sans min-h-screen">
         <PaymentSuccess onContinue={handlePaymentSuccessDismiss} />
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily, minHeight: "100vh" }}>
+    <div className="font-sans min-h-screen">
       {/* ── Map Section (takes full viewport height) ── */}
-      <div
-        style={{
-          width: "100%",
-          height: "100vh",
-          background: "#111827",
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "min(100%, 100vh)",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            position: "relative",
-            boxShadow: "0 0 60px rgba(0,0,0,0.4)",
-          }}
-        >
-        {/* Header */}
-        <div
-          style={{
-            padding: "12px 20px",
-            background: "#16213e",
-            color: "#fff",
-            fontSize: 16,
-            fontWeight: 700,
-            letterSpacing: 0.4,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
-            City to Print
+      <div className="w-full h-screen bg-gray-900 flex justify-center">
+        <div className="w-full max-w-[min(100%,100vh)] h-full flex flex-col relative shadow-[0_0_60px_rgba(0,0,0,0.4)]">
+          {/* Header */}
+          <div className="px-5 py-3 bg-[#16213e] text-white text-base font-bold tracking-wide shrink-0 flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              City to Print
+            </div>
+            <a
+              href="https://www.etsy.com/uk/shop/Drakey3DPrints"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-slate-200 text-[13px] font-medium no-underline tracking-tight"
+            >
+              by Drakey 3D Prints
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
           </div>
-          <a
-            href="https://www.etsy.com/uk/shop/Drakey3DPrints"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              color: "#e2e8f0",
-              fontSize: 13,
-              fontWeight: 500,
-              textDecoration: "none",
-              letterSpacing: 0.2,
-            }}
-          >
-            by Drakey 3D Prints
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </a>
-        </div>
 
-        {/* Map */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <MapSelector onBoundsSelected={handleBoundsSelected} loading={loading} />
-        </div>
+          {/* Map */}
+          <div className="flex-1 min-h-0">
+            <MapSelector onBoundsSelected={handleBoundsSelected} loading={loading} />
+          </div>
         </div>
       </div>
 
@@ -212,16 +169,7 @@ export default function App() {
 
       {/* ── Error notice ── */}
       {error && !loading && (
-        <div
-          style={{
-            padding: "12px 24px",
-            background: "#fef2f2",
-            color: "#b91c1c",
-            fontSize: 13,
-            textAlign: "center",
-            borderTop: "1px solid #fecaca",
-          }}
-        >
+        <div className="px-6 py-3 bg-red-50 text-red-700 text-[13px] text-center border-t border-red-200">
           Overpass API issue: {error} — showing generated preview data
         </div>
       )}
@@ -237,6 +185,11 @@ export default function App() {
             onOpenViewer={() => setShowViewer(true)}
           />
         </div>
+      )}
+
+      {/* ── Review Carousel ── */}
+      {!loading && (
+        <ReviewCarousel compact={!!sceneData} />
       )}
 
       {/* ── Fullscreen 3D Viewer Overlay (lazy-loaded on interaction only) ── */}

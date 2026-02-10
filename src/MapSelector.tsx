@@ -22,6 +22,20 @@ interface Props {
 /** Minimum zoom level required to generate a preview / place an order. */
 const MIN_ZOOM_FOR_GENERATE = Number(import.meta.env.VITE_MIN_ZOOM_FOR_GENERATE) || 12;
 
+/** Cities with dense, interesting geometry that look great as 3D prints. */
+const SHOWCASE_CITIES: { lng: number; lat: number; zoom: number; bearing: number }[] = [
+  { lng: -0.0876, lat: 51.5074, zoom: 15.5, bearing: -15 },   // City of London — dense skyscrapers + Tower Bridge
+  { lng: 2.3490, lat: 48.8530, zoom: 15.5, bearing: 10 },     // Paris — Notre-Dame & Île de la Cité
+  { lng: -73.9857, lat: 40.7484, zoom: 15.5, bearing: -29 },   // Manhattan Midtown — Empire State area
+  { lng: 139.7670, lat: 35.6812, zoom: 15.5, bearing: 0 },     // Tokyo — Shibuya crossing area
+  { lng: -3.1883, lat: 55.9533, zoom: 15.5, bearing: 5 },      // Edinburgh Old Town — castle to Royal Mile
+  { lng: 12.4964, lat: 41.9028, zoom: 15.5, bearing: -20 },    // Rome — Colosseum & Forum
+  { lng: -0.1181, lat: 51.5033, zoom: 15.5, bearing: 0 },      // Westminster — Big Ben, Parliament, London Eye
+  { lng: -2.2426, lat: 53.4808, zoom: 15.5, bearing: 10 },     // Manchester city centre — dense Northern Quarter
+  { lng: 55.2708, lat: 25.1972, zoom: 15.5, bearing: -30 },    // Dubai Marina — tall towers along the water
+  { lng: -1.8904, lat: 52.4862, zoom: 15.5, bearing: 0 },      // Birmingham city centre — canal basin area
+];
+
 /**
  * Interactive map with viewport-frame area selection.
  *
@@ -204,10 +218,11 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Read initial center/zoom/bearing from URL hash (e.g. #lat=52.52&lng=13.405&z=13&b=45)
-    let initCenter: [number, number] = [13.405, 52.52];
-    let initZoom = 13;
-    let initBearing = 0;
+    // Read initial center/zoom/bearing from URL hash, or pick a random showcase city
+    const randomCity = SHOWCASE_CITIES[Math.floor(Math.random() * SHOWCASE_CITIES.length)];
+    let initCenter: [number, number] = [randomCity.lng, randomCity.lat];
+    let initZoom = randomCity.zoom;
+    let initBearing = randomCity.bearing;
     const hash = window.location.hash.slice(1);
     if (hash) {
       const params = new URLSearchParams(hash);
@@ -312,43 +327,13 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
   }, [onBoundsSelected, searchQuery]);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        width: "100%",
-      }}
-    >
+    <div className="flex flex-col h-full w-full">
       {/* Search bar + location button */}
-      <div
-        style={{
-          position: "relative",
-          padding: "8px 12px",
-          background: "#f0f0f0",
-          borderBottom: "1px solid #ddd",
-          flexShrink: 0,
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-        }}
-      >
+      <div className="relative px-3 py-2 bg-gray-100 border-b border-gray-300 shrink-0 flex gap-2 items-center">
         <button
           onClick={handleUseLocation}
           title="Use my location"
-          style={{
-            padding: "10px 12px",
-            background: "#fff",
-            border: "1px solid #ccc",
-            borderRadius: 6,
-            cursor: "pointer",
-            flexShrink: 0,
-            minHeight: 44,
-            minWidth: 44,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className="p-2.5 bg-white border border-gray-300 rounded-md cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <svg
             width="18"
@@ -367,7 +352,7 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
             <line x1="18" y1="12" x2="22" y2="12" />
           </svg>
         </button>
-        <div style={{ position: "relative", flex: 1 }}>
+        <div className="relative flex-1">
           <input
             type="text"
             value={searchQuery}
@@ -377,16 +362,8 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
               e.target.select();
             }}
             placeholder="Search for a city or location..."
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              paddingRight: searchQuery ? 40 : 14,
-              fontSize: 16,
-              border: "1px solid #ccc",
-              borderRadius: 6,
-              outline: "none",
-              boxSizing: "border-box",
-            }}
+            className="w-full py-2.5 px-3.5 text-base border border-gray-300 rounded-md outline-none"
+            style={{ paddingRight: searchQuery ? 40 : 14 }}
           />
           {searchQuery && !searchLoading && (
             <button
@@ -396,81 +373,23 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
                 setShowResults(false);
               }}
               aria-label="Clear search"
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "rgba(0,0,0,0.1)",
-                border: "none",
-                borderRadius: "50%",
-                width: 28,
-                height: 28,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                color: "#666",
-                fontSize: 16,
-                lineHeight: 1,
-              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/10 border-none rounded-full w-7 h-7 cursor-pointer flex items-center justify-center p-0 text-gray-500 text-base leading-none"
             >
               ✕
             </button>
           )}
           {searchLoading && (
-            <span
-              style={{
-                position: "absolute",
-                right: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                fontSize: 12,
-                color: "#888",
-              }}
-            >
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
               searching...
             </span>
           )}
           {showResults && searchResults.length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                background: "#fff",
-                border: "1px solid #ddd",
-                borderRadius: "0 0 6px 6px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                zIndex: 1000,
-                maxHeight: 250,
-                overflowY: "auto",
-              }}
-            >
+            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-b-md shadow-lg z-[1000] max-h-[250px] overflow-y-auto">
               {searchResults.map((r, i) => (
                 <div
                   key={i}
                   onClick={() => handleSelectResult(r)}
-                  style={{
-                    padding: "12px 16px",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    minHeight: 44,
-                    display: "flex",
-                    alignItems: "center",
-                    borderBottom:
-                      i < searchResults.length - 1
-                        ? "1px solid #eee"
-                        : "none",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#f5f5f5")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "#fff")
-                  }
+                  className="px-4 py-3 cursor-pointer text-sm min-h-[44px] flex items-center hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
                 >
                   {r.display_name}
                 </div>
@@ -483,102 +402,46 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
       {/* Map + selection frame overlay */}
       <div
         ref={mapAreaRef}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          position: "relative",
-          overflow: "hidden",
-        }}
+        className="flex-1 min-h-0 relative overflow-hidden"
         onClick={() => setShowResults(false)}
       >
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        <div ref={containerRef} className="w-full h-full" />
 
         {/* Selection frame — always square, darkened outside, clear inside */}
         <div
           ref={frameRef}
+          className="absolute pointer-events-none z-[1] rounded-sm transition-[border-color] duration-300"
           style={{
-            position: "absolute",
             /* size & position set by updateFrameLayout via ResizeObserver */
             top: "12%",
             left: "12%",
             width: "76%",
             height: "76%",
             border: `2.5px dashed ${tooFarOut ? "#f59e0b" : "#3b82f6"}`,
-            borderRadius: 4,
             boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.25)",
-            pointerEvents: "none",
-            zIndex: 1,
-            transition: "border-color 0.3s",
           }}
         />
 
         {/* Dimensions badge — vertical position set by updateFrameLayout */}
         <div
           ref={dimensionsRef}
-          style={{
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(8px)",
-            color: "#fff",
-            padding: "6px 14px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            letterSpacing: 0.3,
-            pointerEvents: "none",
-            zIndex: 2,
-            whiteSpace: "nowrap",
-          }}
+          className="absolute left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-lg text-white px-3.5 py-1.5 rounded-md text-[13px] font-medium tracking-wide pointer-events-none z-[2] whitespace-nowrap"
         />
 
         {/* "Zoom in" banner — shown when too far out to generate */}
         {tooFarOut && (
-          <div
-            style={{
-              position: "absolute",
-              top: 12,
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(245, 158, 11, 0.92)",
-              backdropFilter: "blur(8px)",
-              color: "#1a1a2e",
-              padding: "10px 20px",
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: 600,
-              pointerEvents: "none",
-              zIndex: 10,
-              whiteSpace: "nowrap",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
-              textAlign: "center",
-            }}
-          >
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-amber-500/[0.92] backdrop-blur-lg text-[#1a1a2e] px-5 py-2.5 rounded-lg text-sm font-semibold pointer-events-none z-10 whitespace-nowrap shadow-lg text-center">
             Zoom in closer to generate a model
           </div>
         )}
       </div>
 
       {/* Bottom action bar */}
-      <div
-        style={{
-          padding: "12px 16px",
-          background: "#1a1a2e",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
+      <div className="px-4 py-3 bg-[#1a1a2e] shrink-0 flex items-center gap-3">
         <span
-          style={{
-            flex: 1,
-            color: tooFarOut ? "#f59e0b" : "#a0a0b0",
-            fontSize: 13,
-            lineHeight: 1.4,
-            transition: "color 0.3s",
-          }}
+          className={`flex-1 text-[13px] leading-snug transition-colors duration-300 ${
+            tooFarOut ? "text-amber-500" : "text-gray-400"
+          }`}
         >
           {tooFarOut
             ? "Zoom in to select an area for printing"
@@ -587,20 +450,11 @@ export default function MapSelector({ onBoundsSelected, visible, loading }: Prop
         <button
           onClick={handleGenerate}
           disabled={loading || tooFarOut}
-          style={{
-            padding: "12px 24px",
-            background: loading || tooFarOut ? "#6b7280" : "#3b82f6",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            cursor: loading || tooFarOut ? "not-allowed" : "pointer",
-            fontSize: 15,
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-            minHeight: 48,
-            opacity: loading || tooFarOut ? 0.8 : 1,
-            transition: "background 0.2s, opacity 0.2s",
-          }}
+          className={`px-6 py-3 text-white border-none rounded-md text-[15px] font-semibold whitespace-nowrap min-h-[48px] transition-all duration-200 ${
+            loading || tooFarOut
+              ? "bg-gray-500 cursor-not-allowed opacity-80"
+              : "bg-blue-500 cursor-pointer hover:bg-blue-600"
+          }`}
         >
           {loading ? "Generating..." : "Generate Preview"}
         </button>

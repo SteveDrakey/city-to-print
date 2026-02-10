@@ -119,77 +119,52 @@ export default function CityLoadingAnimation({ retryAttempt, maxRetries }: Props
 
   return (
     <div
+      className="px-6 pt-12 pb-8 text-center overflow-hidden relative"
       style={{
-        padding: "48px 24px 32px",
-        textAlign: "center",
         background:
           "linear-gradient(180deg, #0f1729 0%, #1a2744 40%, #2a3f6a 100%)",
-        overflow: "hidden",
-        position: "relative",
       }}
     >
       {/* Dawn sky overlay */}
       <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-[3000ms]"
         style={{
-          position: "absolute",
-          inset: 0,
           background:
             "linear-gradient(180deg, #1a1040 0%, #4a2050 40%, #c05535 100%)",
           opacity: dawnGlow * 0.7,
-          transition: "opacity 3s ease",
-          pointerEvents: "none",
         }}
       />
 
       {/* Sunrise sky overlay */}
       <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-[3000ms]"
         style={{
-          position: "absolute",
-          inset: 0,
           background:
             "linear-gradient(180deg, #3a5a8a 0%, #8a90c0 35%, #f0b86a 100%)",
           opacity: sunriseGlow * 0.85,
-          transition: "opacity 3s ease",
-          pointerEvents: "none",
         }}
       />
 
       {/* Horizon glow (warm radial near bottom) */}
       {dawnGlow > 0 && (
         <div
+          className="absolute bottom-0 left-0 right-0 h-[55%] pointer-events-none z-[1] transition-all duration-[3000ms]"
           style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "55%",
             background: `radial-gradient(ellipse 130% 55% at 70% 100%, rgba(255,140,50,${dawnGlow * 0.4}) 0%, transparent 70%)`,
-            transition: "all 3s ease",
-            pointerEvents: "none",
-            zIndex: 1,
           }}
         />
       )}
 
       {/* Stars — fade out at dawn */}
       <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          overflow: "hidden",
-          opacity: starOpacity,
-          transition: "opacity 3s ease",
-        }}
+        className="absolute inset-0 overflow-hidden transition-opacity duration-[3000ms]"
+        style={{ opacity: starOpacity }}
       >
         {Array.from({ length: 20 }, (_, i) => (
           <div
             key={i}
+            className="absolute w-0.5 h-0.5 bg-white rounded-full"
             style={{
-              position: "absolute",
-              width: 2,
-              height: 2,
-              background: "#fff",
-              borderRadius: "50%",
               top: `${5 + ((i * 37) % 35)}%`,
               left: `${((i * 53 + 17) % 100)}%`,
               opacity: 0.3 + (i % 3) * 0.3,
@@ -202,13 +177,10 @@ export default function CityLoadingAnimation({ retryAttempt, maxRetries }: Props
 
       {/* Moon — arcs across the sky and sets */}
       <div
+        className="absolute w-8 h-8 rounded-full z-[2]"
         style={{
-          position: "absolute",
           top: `${moonTop}%`,
           left: `${moonLeft}%`,
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
           background:
             "radial-gradient(circle at 40% 40%, #fef3c7, #fbbf24)",
           boxShadow: `0 0 20px 4px rgba(251,191,36,${0.3 * moonOpacity})`,
@@ -216,19 +188,15 @@ export default function CityLoadingAnimation({ retryAttempt, maxRetries }: Props
           transform: "translate(-50%, -50%)",
           transition: "top 3s ease, left 3s ease, opacity 2s ease",
           animation: "moonFloat 4s ease-in-out infinite",
-          zIndex: 2,
         }}
       />
 
       {/* Sun — rises from the horizon */}
       <div
+        className="absolute w-11 h-11 rounded-full z-[2]"
         style={{
-          position: "absolute",
           top: `${sunTop}%`,
           left: `${sunLeft}%`,
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
           background:
             "radial-gradient(circle at 45% 45%, #fff9e6, #fbbf24, #f59e0b)",
           boxShadow: `0 0 ${30 + sunPhase * 40}px ${10 + sunPhase * 20}px rgba(251,191,36,${0.3 * sunOpacity}), 0 0 ${60 + sunPhase * 60}px ${30 + sunPhase * 30}px rgba(245,158,11,${0.15 * sunOpacity})`,
@@ -237,21 +205,11 @@ export default function CityLoadingAnimation({ retryAttempt, maxRetries }: Props
           transition:
             "top 3s ease, left 3s ease, opacity 2s ease, transform 3s ease, box-shadow 3s ease",
           animation: sunOpacity > 0 ? "sunPulse 3s ease-in-out infinite" : "none",
-          zIndex: 2,
         }}
       />
 
       {/* Animated city skyline */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-end",
-          height: 100,
-          position: "relative",
-          zIndex: 3,
-        }}
-      >
+      <div className="flex justify-center items-end h-[100px] relative z-[3]">
         <svg
           width={skylineWidth}
           height="100"
@@ -376,17 +334,8 @@ export default function CityLoadingAnimation({ retryAttempt, maxRetries }: Props
 
       {/* Status message */}
       <div
-        style={{
-          marginTop: 28,
-          fontSize: 16,
-          fontWeight: 600,
-          color: sunriseGlow > 0.5 ? "#3d2b1a" : "#e2e8f0",
-          letterSpacing: 0.3,
-          position: "relative",
-          zIndex: 4,
-          minHeight: 24,
-          transition: "color 3s ease",
-        }}
+        className="mt-7 text-base font-semibold tracking-wide relative z-[4] min-h-[24px] transition-colors duration-[3000ms]"
+        style={{ color: sunriseGlow > 0.5 ? "#3d2b1a" : "#e2e8f0" }}
       >
         {BUILDING_MESSAGES[msgIndex]}
         {dots}
@@ -396,108 +345,43 @@ export default function CityLoadingAnimation({ retryAttempt, maxRetries }: Props
       {isRetrying && (
         <div
           ref={retryBannerRef}
+          className="mt-4 px-5 py-3 rounded-[10px] inline-block relative z-[4] animate-[retrySlideIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)] transition-all duration-500"
           style={{
-            marginTop: 16,
-            padding: "12px 20px",
             background: isTakingLong
               ? "rgba(239, 68, 68, 0.15)"
               : "rgba(251, 191, 36, 0.15)",
             border: `1px solid ${isTakingLong ? "rgba(239, 68, 68, 0.3)" : "rgba(251, 191, 36, 0.3)"}`,
-            borderRadius: 10,
-            display: "inline-block",
-            animation: "retrySlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
-            position: "relative",
-            zIndex: 4,
-            transition: "background 0.5s ease, border-color 0.5s ease",
           }}
         >
           {/* Long-wait warning label */}
           {isTakingLong && (
-            <div
-              style={{
-                fontSize: 11,
-                color: "#f87171",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                marginBottom: 6,
-                animation: "retrySlideIn 0.5s ease",
-              }}
-            >
+            <div className="text-[11px] text-red-400 font-bold uppercase tracking-[1px] mb-1.5 animate-[retrySlideIn_0.5s_ease]">
               Taking much longer than expected
             </div>
           )}
           <div
-            style={{
-              fontSize: 14,
-              color: isTakingLong ? "#fca5a5" : "#fbbf24",
-              fontWeight: 600,
-            }}
+            className="text-sm font-semibold"
+            style={{ color: isTakingLong ? "#fca5a5" : "#fbbf24" }}
           >
             {retryMsg}
           </div>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+          <div className="text-xs text-slate-400 mt-1">
             Attempt {retryAttempt + 1} of {maxRetries + 1}
           </div>
           {/* Progress bar */}
-          <div
-            style={{
-              marginTop: 8,
-              height: 4,
-              borderRadius: 2,
-              background: "rgba(148,163,184,0.2)",
-              overflow: "hidden",
-              width: 140,
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
-          >
+          <div className="mt-2 h-1 rounded-sm bg-slate-400/20 overflow-hidden w-[140px] mx-auto">
             <div
+              className="h-full rounded-sm transition-all duration-500"
               style={{
-                height: "100%",
-                borderRadius: 2,
                 background: isTakingLong
                   ? "linear-gradient(90deg, #f87171, #ef4444)"
                   : "linear-gradient(90deg, #fbbf24, #f59e0b)",
                 width: `${progressPct}%`,
-                transition: "width 0.5s ease, background 0.5s ease",
               }}
             />
           </div>
         </div>
       )}
-
-      {/* CSS Animations */}
-      <style>{`
-        @keyframes buildingRise {
-          from { transform: scaleY(0); }
-          to   { transform: scaleY(1); }
-        }
-        @keyframes windowGlow {
-          from { opacity: 0.4; }
-          to   { opacity: 0.9; }
-        }
-        @keyframes starTwinkle {
-          from { opacity: 0.15; }
-          to   { opacity: 0.8; }
-        }
-        @keyframes craneSway {
-          from { transform: rotate(-2deg); }
-          to   { transform: rotate(2deg); }
-        }
-        @keyframes retrySlideIn {
-          from { opacity: 0; transform: translateY(10px) scale(0.95); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes moonFloat {
-          0%, 100% { transform: translate(-50%, -50%) translateY(0); }
-          50%      { transform: translate(-50%, -50%) translateY(-3px); }
-        }
-        @keyframes sunPulse {
-          0%, 100% { filter: brightness(1); }
-          50%      { filter: brightness(1.15); }
-        }
-      `}</style>
     </div>
   );
 }
