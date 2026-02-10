@@ -11,6 +11,10 @@ const LazyViewerOverlay = lazy(() =>
   import("./ModelPreview").then((m) => ({ default: m.ViewerOverlay }))
 );
 
+declare const __BUILD_HASH__: string;
+
+const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("drakey.co.uk");
+
 export default function App() {
   const { loading, error, sceneData, fetchData, retryAttempt, maxRetries } =
     useOverpassData();
@@ -134,6 +138,11 @@ export default function App() {
                 <path d="M2 12l10 5 10-5" />
               </svg>
               City to Print
+              {!isProd && (
+                <span className="ml-2 px-1.5 py-0.5 bg-white/15 rounded text-[10px] font-mono tracking-wider opacity-70">
+                  {__BUILD_HASH__}
+                </span>
+              )}
             </div>
             <a
               href="https://www.etsy.com/uk/shop/Drakey3DPrints"
