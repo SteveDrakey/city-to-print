@@ -22,22 +22,24 @@ export default function App() {
   const [areaDescription, setAreaDescription] = useState("");
   const [selectedBounds, setSelectedBounds] = useState<Bounds | null>(null);
   const [showViewer, setShowViewer] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(() => {
+  const [stripeSessionId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("success") === "1";
+    return params.get("session_id") || null;
   });
   const productRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
 
-  // Clean the ?success=1 query param from the URL without a reload
+  const [paymentDismissed, setPaymentDismissed] = useState(false);
+
+  // Clean the ?session_id query param from the URL without a reload
   useEffect(() => {
-    if (paymentSuccess) {
+    if (stripeSessionId) {
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [paymentSuccess]);
+  }, [stripeSessionId]);
 
   const handlePaymentSuccessDismiss = useCallback(() => {
-    setPaymentSuccess(false);
+    setPaymentDismissed(true);
   }, []);
 
   const handleBoundsSelected = useCallback(
@@ -116,10 +118,10 @@ export default function App() {
     }
   }, [sceneData]);
 
-  if (paymentSuccess) {
+  if (stripeSessionId && !paymentDismissed) {
     return (
       <div className="font-sans min-h-screen">
-        <PaymentSuccess onContinue={handlePaymentSuccessDismiss} />
+        <PaymentSuccess sessionId={stripeSessionId} onContinue={handlePaymentSuccessDismiss} />
       </div>
     );
   }

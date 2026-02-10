@@ -176,6 +176,15 @@ export default function CheckoutSection({ heroImage, locationName, bounds }: Pro
             <br />
             Apple Pay, Google Pay, and cards accepted.
           </p>
+          <p className="text-center mt-2 text-[11px] text-gray-400">
+            <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors">
+              Shipping &amp; Returns
+            </a>
+            {" · "}
+            <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors">
+              Privacy
+            </a>
+          </p>
         </div>
       </div>
     </div>

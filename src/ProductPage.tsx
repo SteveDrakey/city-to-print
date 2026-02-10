@@ -387,7 +387,20 @@ export default function ProductPage({ sceneData, locationName, areaDescription, 
           </svg>
           Visit our Etsy Shop
         </a>
-        <p className="text-xs text-white/30 mt-6">
+        <div className="flex justify-center gap-4 mt-6 text-xs text-white/40">
+          <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 transition-colors no-underline text-white/40">
+            Shipping &amp; Returns
+          </a>
+          <span className="text-white/20">|</span>
+          <a href="https://www.etsy.com/uk/shop/Drakey3DPrints/policy" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 transition-colors no-underline text-white/40">
+            Privacy Policy
+          </a>
+          <span className="text-white/20">|</span>
+          <a href="https://www.etsy.com/uk/shop/Drakey3DPrints" target="_blank" rel="noopener noreferrer" className="hover:text-white/70 transition-colors no-underline text-white/40">
+            Contact
+          </a>
+        </div>
+        <p className="text-xs text-white/30 mt-4">
           &copy; {new Date().getFullYear()} Drakey 3D Prints. All rights reserved.
         </p>
       </footer>

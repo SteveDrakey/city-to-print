@@ -91,7 +91,7 @@ export default async function handler(
       payment_intent_data: {
         metadata: orderMetadata,
       },
-      success_url: `${origin}?success=1`,
+      success_url: `${origin}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: origin,
     });
 
